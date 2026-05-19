@@ -1,0 +1,99 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Geist", ui-sans-serif, system-ui, sans-serif;
+
+  --color-chumbo: var(--chumbo);
+  --color-gold: var(--gold);
+  --color-surface: var(--surface);
+  --color-surface-low: var(--surface-low);
+  --color-surface-high: var(--surface-high);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-text-secondary: var(--text-secondary);
+  --color-success: var(--success);
+  --color-success-light: var(--success-light);
+  --color-warning: var(--warning);
+  --color-warning-light: var(--warning-light);
+  --color-error: var(--error);
+  --color-error-light: var(--error-light);
+  --color-info: var(--info);
+  --color-info-light: var(--info-light);
+  --color-processos: var(--processos);
+  --color-processos-light: var(--processos-light);
+}
+
+:root {
+  --chumbo: #162738;
+  --gold: #755E00;
+  --surface: #f3f5f7;
+  --surface-low: #ffffff;
+  --surface-high: #e7e8e9;
+  --sidebar-bg: #152737;
+  --sidebar-text: #ffffff;
+  --text-secondary: #6c757d;
+  --success: #28a745;
+  --success-light: rgba(40, 167, 69, 0.1);
+  --warning: #ea580c;
+  --warning-light: rgba(234, 88, 12, 0.1);
+  --error: #dc3545;
+  --error-light: rgba(220, 53, 69, 0.1);
+  --info: #6f42c1;
+  --info-light: rgba(111, 66, 193, 0.1);
+  --processos: #17a2b8;
+  --processos-light: rgba(23, 162, 184, 0.1);
+}
+
+.dark {
+  --chumbo: #ffffff;
+  --gold: #DDAB2C;
+  --surface: #121212;
+  --surface-low: #1f1f1f;
+  --surface-high: #3C4043;
+  --sidebar-bg: #1a1a1a;
+  --sidebar-text: #ffffff;
+  --text-secondary: #a0a0a0;
+  --success: #28a745;
+  --success-light: rgba(40, 167, 69, 0.2);
+  --warning: #fb923c;
+  --warning-light: rgba(251, 146, 60, 0.2);
+  --error: #ff4d4d;
+  --error-light: rgba(255, 77, 77, 0.2);
+  --info: #a370f7;
+  --info-light: rgba(163, 112, 247, 0.2);
+  --processos: #17a2b8;
+  --processos-light: rgba(23, 162, 184, 0.2);
+}
+
+body {
+  background-color: var(--surface);
+  color: var(--chumbo);
+  font-family: var(--font-sans);
+}
+
+button, 
+[role="button"],
+select {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"]:disabled {
+  cursor: not-allowed;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.025em; /* tracking-tight */
+}
+
+@utility scrollbar-hide {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
