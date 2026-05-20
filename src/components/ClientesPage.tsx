@@ -17,7 +17,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  EmptyState
+  EmptyState,
+  Select
 } from './ui';
 import { Search, Filter, Users, ChevronLeft, ChevronRight, Edit, Trash2, X, ChevronDown, Plus, MoreHorizontal, Star, Eye } from 'lucide-react';
 import { mockClientes, addClienteToMock, removeClienteFromMock } from '../data/mockData';
@@ -28,6 +29,7 @@ import { Step2Modal } from './Modals/Step2Modal';
 import { EditarClienteDrawer } from './Modals/EditarClienteDrawer';
 import { DeleteConfirmModal } from './Modals/DeleteConfirmModal';
 import { getAreaColor } from '../lib/area-colors';
+import { formatCPF_CNPJ, formatPhone } from '../lib/formatters';
 
 function getInitials(name: string) {
   return name
@@ -299,13 +301,13 @@ export function ClientesPage() {
             </div>
 
             {/* Filters */}
-            <div className="bg-[var(--color-surface-low)] border border-[var(--color-surface-high)] rounded-lg p-3">
+            <Card className="p-3 bg-[var(--color-surface-low)] border-[var(--color-surface-high)] shadow-sm">
               <div className="flex flex-col lg:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" size={18} />
                   <Input 
                     placeholder="Buscar por nome, CPF ou CNPJ..." 
-                    className="pl-10 pr-10 bg-transparent border-[var(--color-surface-high)]"
+                    className="pl-10 pr-10 bg-[var(--color-surface)] border-[var(--color-surface-high)]"
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value);
@@ -322,61 +324,55 @@ export function ClientesPage() {
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--color-surface-high)] bg-transparent min-w-[140px]">
-                    <span className="text-sm text-[var(--color-text-secondary)]">Tipo:</span>
-                    <select 
-                      className="bg-transparent text-sm font-medium focus:outline-none cursor-pointer"
-                      value={tipoFilter}
-                      onChange={(e) => {
-                        setTipoFilter(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                    >
-                      <option value="Todos">Todos</option>
-                      <option value="PF">PF</option>
-                      <option value="PJ">PJ</option>
-                    </select>
-                  </div>
+                <div className="grid grid-cols-2 lg:flex lg:flex-row gap-3">
+                  <Select 
+                    className="bg-[var(--color-surface)] border-[var(--color-surface-high)] text-sm lg:w-[160px]"
+                    options={[
+                      { label: 'Tipo: Todos', value: 'Todos' },
+                      { label: 'Tipo: PF', value: 'PF' },
+                      { label: 'Tipo: PJ', value: 'PJ' }
+                    ]}
+                    value={tipoFilter}
+                    onChange={(e) => {
+                      setTipoFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
 
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--color-surface-high)] bg-transparent min-w-[140px]">
-                    <span className="text-sm text-[var(--color-text-secondary)]">Área:</span>
-                    <select 
-                      className="bg-transparent text-sm font-medium focus:outline-none cursor-pointer"
-                      value={areaFilter}
-                      onChange={(e) => {
-                        setAreaFilter(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                    >
-                      <option value="Todas">Todas</option>
-                      <option value="Criminal">Criminal</option>
-                      <option value="Cível">Cível</option>
-                      <option value="Trabalhista">Trabalhista</option>
-                      <option value="Tributário">Tributário</option>
-                      <option value="Previdenciário">Previdenciário</option>
-                    </select>
-                  </div>
+                  <Select 
+                    className="bg-[var(--color-surface)] border-[var(--color-surface-high)] text-sm lg:w-[160px]"
+                    options={[
+                      { label: 'Área: Todas', value: 'Todas' },
+                      { label: 'Área: Criminal', value: 'Criminal' },
+                      { label: 'Área: Cível', value: 'Cível' },
+                      { label: 'Área: Trabalhista', value: 'Trabalhista' },
+                      { label: 'Área: Tributário', value: 'Tributário' },
+                      { label: 'Área: Previdenciário', value: 'Previdenciário' }
+                    ]}
+                    value={areaFilter}
+                    onChange={(e) => {
+                      setAreaFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
 
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--color-surface-high)] bg-transparent min-w-[140px]">
-                    <span className="text-sm text-[var(--color-text-secondary)]">Status:</span>
-                    <select 
-                      className="bg-transparent text-sm font-medium focus:outline-none cursor-pointer"
-                      value={statusFilter}
-                      onChange={(e) => {
-                        setStatusFilter(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                    >
-                      <option value="Todos">Todos</option>
-                      <option value="Ativo">Ativo</option>
-                      <option value="Inativo">Inativo</option>
-                      <option value="Arquivado">Arquivado</option>
-                    </select>
-                  </div>
+                  <Select 
+                    className="bg-[var(--color-surface)] border-[var(--color-surface-high)] text-sm lg:w-[160px]"
+                    options={[
+                      { label: 'Status: Todos', value: 'Todos' },
+                      { label: 'Status: Ativo', value: 'Ativo' },
+                      { label: 'Status: Inativo', value: 'Inativo' },
+                      { label: 'Status: Arquivado', value: 'Arquivado' }
+                    ]}
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
                 </div>
               </div>
-            </div>
+            </Card>
 
             {/* Table */}
             <Card className="overflow-hidden">
@@ -412,7 +408,7 @@ export function ClientesPage() {
                                     {(cliente as any).isVIP && <Star size={12} className="text-[#C5B382] fill-[#C5B382]" />}
                                   </Link>
                                   <span className="text-[11px] text-[var(--color-chumbo)] opacity-70">
-                                    {cliente.cpf_cnpj}
+                                    {formatCPF_CNPJ(cliente.cpf_cnpj)}
                                   </span>
                                 </div>
                               </div>
@@ -431,7 +427,7 @@ export function ClientesPage() {
                               </div>
                             </TableCell>
                             <TableCell className="hidden md:table-cell text-sm text-[var(--color-chumbo)] opacity-80">
-                              {cliente.telefone}
+                              {formatPhone(cliente.telefone)}
                             </TableCell>
                             <TableCell>
                               <Badge variant={getStatusBadgeVariant(cliente.status) as any} className="font-bold px-3 py-0.5 text-[10px]">

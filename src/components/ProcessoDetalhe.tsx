@@ -22,6 +22,7 @@ import { Sidebar } from './Sidebar';
 import { Button, Card, StatusBadge as Badge, cn } from './ui';
 import { mockProcessos } from '../data/processosData';
 import { getAreaColor } from '../lib/area-colors';
+import { formatCurrency } from '../lib/formatters';
 
 type TabType = 'resumo' | 'atividades' | 'financeiro' | 'audiencias' | 'diario';
 
@@ -172,7 +173,7 @@ export function ProcessoDetalhe() {
                   <DollarSign size={20} />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-lg font-bold text-[var(--color-chumbo)] leading-tight">{processo.valorCausa || '—'}</span>
+                  <span className="text-lg font-bold text-[var(--color-chumbo)] leading-tight">{processo.valorCausa ? formatCurrency(processo.valorCausa) : '—'}</span>
                   <span className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-wider">Valor da Causa</span>
                 </div>
               </Card>
@@ -199,7 +200,7 @@ export function ProcessoDetalhe() {
                   <DollarSign size={20} />
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-lg font-bold text-[var(--color-chumbo)] leading-tight">{processo.financeiroPago || '—'}</span>
+                    <span className="text-lg font-bold text-[var(--color-chumbo)] leading-tight">{processo.financeiroPago ? formatCurrency(processo.financeiroPago) : '—'}</span>
                     <span className="text-[10px] font-bold text-[var(--color-success)] uppercase tracking-wider">Financeiro Pago</span>
                 </div>
               </Card>
@@ -296,7 +297,7 @@ export function ProcessoDetalhe() {
                        </div>
                        <div className="space-y-1">
                           <span className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase opacity-60">Valor da Causa</span>
-                          <p className="text-sm font-bold text-[var(--color-chumbo)]">{processo.valorCausa || '—'}</p>
+                          <p className="text-sm font-bold text-[var(--color-chumbo)]">{processo.valorCausa ? formatCurrency(processo.valorCausa) : '—'}</p>
                        </div>
                        <div className="space-y-1">
                           <span className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase opacity-60">Data de Distribuição</span>

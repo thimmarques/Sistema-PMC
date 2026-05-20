@@ -1,6 +1,7 @@
 import React from 'react';
 import { Star } from 'lucide-react';
-import { FormField, Select, Textarea, Toggle } from '../../ui';
+import { FormField, Select, Textarea, Toggle, Input } from '../../ui';
+import { formatCurrencyInput } from '../../../lib/formatters';
 
 export interface CommonFieldsData {
   isVIP: boolean;
@@ -37,16 +38,13 @@ export function CommonFields({ data, onChange, errors }: CommonFieldsProps) {
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="VALOR HONORÁRIOS E PREVISÃO" error={errors?.valorHonorarios}>
-          <div className="relative">
-             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-text-secondary)]">R$</span>
-             <input
-               className={`w-full bg-transparent border rounded-md px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-1 focus:border-[var(--color-gold)] transition-colors
-                           ${errors?.valorHonorarios ? 'border-[var(--color-error)]' : 'border-[var(--color-surface-high)]'}`}
-               placeholder="0,00"
-               value={data.valorHonorarios || ''}
-               onChange={(e) => onChange({ ...data, valorHonorarios: e.target.value })}
-             />
-          </div>
+          <Input
+            leftAddon="R$"
+            placeholder="0,00"
+            value={data.valorHonorarios || ''}
+            onChange={(e) => onChange({ ...data, valorHonorarios: formatCurrencyInput(e.target.value) })}
+            error={errors?.valorHonorarios}
+          />
         </FormField>
 
         <FormField label="FORMA DE PAGAMENTO" error={errors?.formaPagamento}>

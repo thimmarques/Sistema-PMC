@@ -9,7 +9,7 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
 }
 
-export function Card({ className, title, icon, value, children, ...props }: CardProps) {
+export const Card: React.FC<CardProps> = ({ className, title, icon, value, children, ...props }) => {
   return (
     <div
       className={cn(
@@ -35,9 +35,9 @@ export function Card({ className, title, icon, value, children, ...props }: Card
           </div>
         </div>
       )}
-      <div className="text-[var(--color-chumbo)]">
+      <div className={cn(children ? "text-[var(--color-chumbo)]" : "")}>
         {children}
       </div>
     </div>
   );
-}
+};

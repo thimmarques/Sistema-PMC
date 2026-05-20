@@ -76,7 +76,7 @@ export function Dashboard() {
       .reduce((acc, f) => acc + parseCurrency(f.valor.amount), 0);
   }, [mockFinanceiro.length]);
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
+  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-surface)]">

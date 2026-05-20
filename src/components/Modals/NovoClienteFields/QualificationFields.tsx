@@ -1,5 +1,6 @@
 import React from 'react';
 import { FormField, Select, Input } from '../../ui';
+import { formatCPF_CNPJ, formatPhone } from '../../../lib/formatters';
 
 interface QualificationFieldsProps {
   tipoCliente: 'pf' | 'pj';
@@ -37,7 +38,7 @@ export function QualificationFields({ tipoCliente, data, onChange, errors }: Qua
           <FormField label="CPF" required className="sm:col-span-2" error={errors?.cpf}>
             <Input
               value={data.cpf || ''}
-              onChange={(e) => updateField('cpf', e.target.value)}
+              onChange={(e) => updateField('cpf', formatCPF_CNPJ(e.target.value))}
               placeholder="000.000.000-00"
               error={errors?.cpf}
             />
@@ -83,7 +84,7 @@ export function QualificationFields({ tipoCliente, data, onChange, errors }: Qua
           <FormField label="TELEFONE" required className="sm:col-span-2" error={errors?.telefone}>
             <Input
               value={data.telefone || ''}
-              onChange={(e) => updateField('telefone', e.target.value)}
+              onChange={(e) => updateField('telefone', formatPhone(e.target.value))}
               placeholder="(00) 00000-0000"
               error={errors?.telefone}
             />
@@ -156,7 +157,7 @@ export function QualificationFields({ tipoCliente, data, onChange, errors }: Qua
         <FormField label="CNPJ" required className="sm:col-span-2" error={errors?.cnpj}>
           <Input
             value={data.cnpj || ''}
-            onChange={(e) => updateField('cnpj', e.target.value)}
+            onChange={(e) => updateField('cnpj', formatCPF_CNPJ(e.target.value))}
             placeholder="00.000.000/0000-00"
             error={errors?.cnpj}
           />
@@ -202,7 +203,7 @@ export function QualificationFields({ tipoCliente, data, onChange, errors }: Qua
         <FormField label="TELEFONE CORPORATIVO" required className="sm:col-span-2" error={errors?.telefoneCorporativo}>
           <Input
             value={data.telefoneCorporativo || ''}
-            onChange={(e) => updateField('telefoneCorporativo', e.target.value)}
+            onChange={(e) => updateField('telefoneCorporativo', formatPhone(e.target.value))}
             placeholder="(00) 0000-0000"
             error={errors?.telefoneCorporativo}
           />
@@ -267,7 +268,7 @@ export function QualificationFields({ tipoCliente, data, onChange, errors }: Qua
         <FormField label="CPF REPRESENTANTE" required className="sm:col-span-2" error={errors?.cpfRepresentante}>
           <Input
             value={data.cpfRepresentante || ''}
-            onChange={(e) => updateField('cpfRepresentante', e.target.value)}
+            onChange={(e) => updateField('cpfRepresentante', formatCPF_CNPJ(e.target.value))}
             placeholder="000.000.000-00"
             error={errors?.cpfRepresentante}
           />

@@ -11,13 +11,22 @@ interface PrevidenciarioFieldsProps {
 const TIPOS_BENEFICIO = [
   { label: 'Aposentadoria', value: 'aposentadoria' },
   { label: 'Auxílio Doença', value: 'auxilio-doenca' },
-  { label: 'Pensão', value: 'pensao' }
+  { label: 'Auxílio Acidente', value: 'auxilio-acidente' },
+  { label: 'BPC LOAS', value: 'bpc-loas' },
+  { label: 'Salário Maternidade', value: 'salario-maternidade' },
+  { label: 'Pensão', value: 'pensao' },
+  { label: 'Outros', value: 'outros' }
 ];
 
 const FASES = [
-  { label: 'Requerimento', value: 'requerimento' },
-  { label: 'Análise', value: 'analise' },
-  { label: 'Recurso', value: 'recurso' }
+  { label: 'Requerimento Administrativo', value: 'requerimento-administrativo' },
+  { label: 'Postulatória', value: 'Postulatória' },
+  { label: 'Saneadora', value: 'Saneadora' },
+  { label: 'Instrutória', value: 'Instrutória' },
+  { label: 'Alegações Finais', value: 'Alegações-Finais' },
+  { label: 'Sentença', value: 'Sentença' },
+  { label: 'Recursos', value: 'Recursos' },
+  { label: 'Cumprimento Sentença', value: 'cumprimento-sentença' }
 ];
 
 export function PrevidenciarioFields({ data, onChange, errors }: PrevidenciarioFieldsProps) {

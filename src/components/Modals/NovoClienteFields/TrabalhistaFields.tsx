@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormField, Select, Input } from '../../ui';
 import { getAreaColor } from '../../../lib/area-colors';
+import { formatCurrencyInput } from '../../../lib/formatters';
 
 interface TrabalhistaFieldsProps {
   data: any;
@@ -12,19 +13,26 @@ interface TrabalhistaFieldsProps {
 const MOTIVOS = [
   { label: 'Justa Causa', value: 'justa-causa' },
   { label: 'Sem Justa Causa', value: 'sem-justa-causa' },
-  { label: 'Pedido Demissão', value: 'pedido-demissao' }
+  { label: 'Pedido Demissão', value: 'pedido-demissao' },
+  { label: 'Outros', value: 'Outros' }
 ];
 
 const TIPOS_RECLAMACAO = [
-  { label: 'Rescisão', value: 'rescisao' },
+  { label: 'Reclamação Trabalhista', value: 'reclamação-trabalhista' },
   { label: 'Horas Extras', value: 'horas-extras' },
-  { label: 'Assédio', value: 'assedio' }
+  { label: 'Assédio', value: 'assedio' },
+  { label: 'Consignação em Pagamento', value: 'Consignação-Pagamento' },
+  { label: 'Outros', value: 'Outros' }
 ];
 
 const FASES = [
   { label: 'Reclamação', value: 'reclamacao' },
-  { label: 'Audiência', value: 'audiencia' },
-  { label: 'Sentença', value: 'sentenca' }
+  { label: 'Audiência UNA', value: 'audiencia-una' },
+  { label: 'Instrução', value: 'Instrução' },
+  { label: 'Sentença', value: 'sentenca' },
+  { label: 'Recurso', value: 'recurso' },
+  { label: 'Liquidação', value: 'liquidacao' },
+  { label: 'Execução', value: 'execucao' }
 ];
 
 export function TrabalhistaFields({ data, onChange, errors, tipoCliente }: TrabalhistaFieldsProps) {
@@ -91,11 +99,10 @@ export function TrabalhistaFields({ data, onChange, errors, tipoCliente }: Traba
         {tipoCliente === 'pf' && (
           <FormField label="SALÁRIO" required error={errors?.salario}>
             <Input
-              type="number"
-              step="0.01"
-              value={data.salario || 0}
-              onChange={(e) => updateField('salario', e.target.value)}
-              placeholder="R$ 0,00"
+              leftAddon="R$"
+              value={data.salario || ''}
+              onChange={(e) => updateField('salario', formatCurrencyInput(e.target.value))}
+              placeholder="0,00"
               error={errors?.salario}
             />
           </FormField>

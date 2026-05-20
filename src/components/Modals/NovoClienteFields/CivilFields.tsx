@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormField, Select, Input, Textarea } from '../../ui';
 import { getAreaColor } from '../../../lib/area-colors';
+import { formatCurrencyInput } from '../../../lib/formatters';
 
 interface CivilFieldsProps {
   data: any;
@@ -10,26 +11,40 @@ interface CivilFieldsProps {
 }
 
 const TIPOS_ACAO_PF = [
-  { label: 'Indenização', value: 'indenizacao' },
-  { label: 'Cobrança', value: 'cobranca' },
-  { label: 'Divórcio', value: 'divorcio' }
+  { label: 'Ação de Indenização', value: 'Ação de Indenização' },
+  { label: 'Ação de Cobrança', value: 'Ação de Cobrança' },
+  { label: 'Ação de Alimentos', value: 'Ação de Alimentos' },
+  { label: 'Ação de Divórcio/União Estável', value: 'Ação de Divórcio/União Estável' },
+  { label: 'Ação de Usucapião', value: 'Ação de Usucapião' },
+  { label: 'Ação de Despejo', value: 'Ação de Despejo' },
+  { label: 'Ação de Execução de Alimentos', value: 'Ação de Execução de Alimentos' },
+  { label: 'Outros', value: 'Outros' }
 ];
 
 const TIPOS_ACAO_PJ = [
-  { label: 'Indenização', value: 'indenizacao' },
-  { label: 'Cobrança', value: 'cobranca' },
-  { label: 'Contrato', value: 'contrato' }
+  { label: 'Ação de Cobrança', value: 'Ação de Cobrança' },
+  { label: 'Ação Monitória', value: 'Ação Monitória' },
+  { label: 'Execução de Título Extrajudicial', value: 'Execução de Título Extrajudicial' },
+  { label: 'Ação de Despejo', value: 'Ação de Despejo' },
+  { label: 'Busca e Apreensão', value: 'Busca e Apreensão' },
+  { label: 'Revisional de Contrato', value: 'Revisional de Contrato' },
+  { label: 'Consignação em Pagamento', value: 'Consignação em Pagamento' },
+  { label: 'Ação de Indenização', value: 'Ação de Indenização' },
+  { label: 'Outros', value: 'Outros'}
 ];
 
 const POLOS = [
-  { label: 'Autor', value: 'autor' },
-  { label: 'Réu', value: 'reu' }
+  { label: 'Ativo', value: 'Ativo' },
+  { label: 'Passivo', value: 'Passivo' },
+  { label: 'Terceiro interessado', value: 'Terceiro interessado' }
 ];
 
 const FASES = [
   { label: 'Petição', value: 'peticao' },
   { label: 'Contestação', value: 'contestacao' },
-  { label: 'Sentença', value: 'sentenca' }
+  { label: 'Sentença', value: 'sentenca' },
+  { label: 'Recurso', value: 'Recurso' },
+  { label: 'Cumprimento Sentença / Execução', value: 'Cumprimento Sentença / Execução' },
 ];
 
 export function CivilFields({ data, onChange, errors, tipoCliente }: CivilFieldsProps) {
@@ -55,11 +70,10 @@ export function CivilFields({ data, onChange, errors, tipoCliente }: CivilFields
 
         <FormField label="VALOR DA CAUSA" required error={errors?.valorDaCausa}>
           <Input
-            type="number"
-            step="0.01"
-            value={data.valorDaCausa || 0}
-            onChange={(e) => updateField('valorDaCausa', e.target.value)}
-            placeholder="R$ 0,00"
+            leftAddon="R$"
+            value={data.valorDaCausa || ''}
+            onChange={(e) => updateField('valorDaCausa', formatCurrencyInput(e.target.value))}
+            placeholder="0,00"
             error={errors?.valorDaCausa}
           />
         </FormField>

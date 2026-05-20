@@ -1,6 +1,7 @@
 import React from 'react';
 import { FormField, Select, Input, Textarea } from '../../ui';
 import { getAreaColor } from '../../../lib/area-colors';
+import { formatCurrencyInput } from '../../../lib/formatters';
 
 interface TributarioFieldsProps {
   data: any;
@@ -26,9 +27,14 @@ const ORGAOS = [
 ];
 
 const FASES = [
-  { label: 'Notificação', value: 'notificacao' },
-  { label: 'Recurso', value: 'recurso' },
-  { label: 'Julgamento', value: 'julgamento' }
+  { label: 'Postulatória', value: 'Postulatória' },
+  { label: 'Saneadora', value: 'Saneadora' },
+  { label: 'Instrutória', value: 'Instrutória' },
+  { label: 'Alegações Finais', value: 'Alegações-Finais' },
+  { label: 'Sentença', value: 'Sentença' },
+  { label: 'Recursos', value: 'Recursos' },
+  { label: 'Execução/Cumprimento', value: 'execucao-cumprimento' }
+  
 ];
 
 export function TributarioFields({ data, onChange, errors, tipoCliente }: TributarioFieldsProps) {
@@ -63,11 +69,10 @@ export function TributarioFields({ data, onChange, errors, tipoCliente }: Tribut
 
         <FormField label="VALOR DÉBITO" required error={errors?.valorDebito}>
           <Input
-            type="number"
-            step="0.01"
-            value={data.valorDebito || 0}
-            onChange={(e) => updateField('valorDebito', e.target.value)}
-            placeholder="R$ 0,00"
+            leftAddon="R$"
+            value={data.valorDebito || ''}
+            onChange={(e) => updateField('valorDebito', formatCurrencyInput(e.target.value))}
+            placeholder="0,00"
             error={errors?.valorDebito}
           />
         </FormField>

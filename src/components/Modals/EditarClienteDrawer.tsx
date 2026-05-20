@@ -5,6 +5,7 @@ import { Button } from '../ui';
 import { QualificationFields } from './NovoClienteFields/QualificationFields';
 import { FieldRenderer } from './NovoClienteFields/FieldRenderer';
 import { CommonFields } from './NovoClienteFields/CommonFields';
+import { formatCPF_CNPJ, formatPhone, formatCurrencyInput } from '../../lib/formatters';
 
 interface EditarClienteDrawerProps {
   isOpen: boolean;
@@ -33,12 +34,12 @@ export function EditarClienteDrawer({ isOpen, onClose, cliente, onSave }: Editar
       setQualificacao({
         nomeCompleto: isPF ? cliente.nome : (qual.nomeCompleto || ''),
         razaoSocial: !isPF ? cliente.nome : (qual.razaoSocial || ''),
-        cpf: isPF ? cliente.cpf_cnpj : (qual.cpf || ''),
-        cnpj: !isPF ? cliente.cpf_cnpj : (qual.cnpj || ''),
+        cpf: isPF ? formatCPF_CNPJ(cliente.cpf_cnpj) : (formatCPF_CNPJ(qual.cpf) || ''),
+        cnpj: !isPF ? formatCPF_CNPJ(cliente.cpf_cnpj) : (formatCPF_CNPJ(qual.cnpj) || ''),
         email: isPF ? cliente.email : (qual.email || ''),
         emailCorporativo: !isPF ? cliente.email : (qual.emailCorporativo || ''),
-        telefone: isPF ? cliente.telefone : (qual.telefone || ''),
-        telefoneCorporativo: !isPF ? cliente.telefone : (qual.telefoneCorporativo || ''),
+        telefone: isPF ? formatPhone(cliente.telefone) : (formatPhone(qual.telefone) || ''),
+        telefoneCorporativo: !isPF ? formatPhone(cliente.telefone) : (formatPhone(qual.telefoneCorporativo) || ''),
         // PF Fields
         rg: qual.rg || '',
         dataNascimento: qual.dataNascimento || '',
@@ -58,7 +59,7 @@ export function EditarClienteDrawer({ isOpen, onClose, cliente, onSave }: Editar
         cepComercial: qual.cepComercial || '',
         complementoComercial: qual.complementoComercial || '',
         representanteLegal: qual.representanteLegal || '',
-        cpfRepresentante: qual.cpfRepresentante || ''
+        cpfRepresentante: formatCPF_CNPJ(qual.cpfRepresentante) || ''
       });
 
       // Initialize area data based on client area
@@ -72,7 +73,7 @@ export function EditarClienteDrawer({ isOpen, onClose, cliente, onSave }: Editar
         isVIP: cliente.isVIP || false,
         responsavel: cliente.responsavel || '',
         observacoes: cliente.observacoes || '',
-        valorHonorarios: cliente.valorHonorarios || '',
+        valorHonorarios: formatCurrencyInput(cliente.valorHonorarios) || '',
         formaPagamento: cliente.formaPagamento || '',
         parcelas: cliente.parcelas || ''
       });

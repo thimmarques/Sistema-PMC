@@ -9,20 +9,26 @@ interface CriminalFieldsProps {
 }
 
 const POLOS = [
-  { label: 'Autor', value: 'autor' },
-  { label: 'Réu', value: 'reu' }
+  { label: 'Réu', value: 'reu' },
+  { label: 'Vítima', value: 'Vítima' },
+  { label: 'Investigado', value: 'Investigado' },
 ];
 
 const SITUACOES = [
-  { label: 'Preso', value: 'preso' },
-  { label: 'Solto', value: 'solto' },
-  { label: 'Foragido', value: 'foragido' }
+  { label: 'Solto', value: 'Solto' },
+  { label: 'Preso Preventivo', value: 'Preso Preventivo' },
+  { label: 'Preso Definitivo', value: 'Preso Definitivo' },
+  { label: 'Liberdade Provisória', value: 'Liberdade Provisória' },
+  { label: 'Monitoramento Eletrónico', value: 'Monitoramento Eletrónico' },
 ];
 
 const FASES = [
   { label: 'Inquérito', value: 'inquerito' },
   { label: 'Denúncia', value: 'denuncia' },
-  { label: 'Julgamento', value: 'julgamento' }
+  { label: 'Instrucao', value: 'instrucao' },
+  { label: 'Julgamento', value: 'julgamento' },
+  { label: 'Recurso', value: 'recurso' },
+  { label: 'Execucao', value: 'execucao' }
 ];
 
 export function CriminalFields({ data, onChange, errors }: CriminalFieldsProps) {

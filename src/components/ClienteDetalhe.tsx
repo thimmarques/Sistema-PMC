@@ -20,29 +20,88 @@ import {
   User,
   Star,
   ExternalLink,
-  ChevronDown
+  ChevronDown,
+  Phone,
+  Send,
+  MessageSquare,
+  StickyNote
 } from 'lucide-react';
 import { Topbar } from './Topbar';
 import { Sidebar } from './Sidebar';
-import { Card, Button, StatusBadge, cn } from './ui';
-import { mockClientes } from '../data/mockData';
+import { Card, Button, StatusBadge, cn, Textarea, Input } from './ui';
+import { mockClientes, updateClienteInMock, mockHistoricoClientes, mockNotes, addNoteToMock } from '../data/mockData';
 import { mockProcessos } from '../data/processosData';
 import { getAreaColor } from '../lib/area-colors';
+import { formatCPF_CNPJ, formatPhone, formatCurrency } from '../lib/formatters';
+import { EditarClienteDrawer } from './Modals/EditarClienteDrawer';
 
 export function ClienteDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'resumo' | 'processos' | 'historico' | 'documentos'>('resumo');
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [noteContent, setNoteContent] = useState('');
+  const [noteType, setNoteType] = useState<'ANOTAÇÃO' | 'LIGAÇÃO'>('ANOTAÇÃO');
+  const [notesPage, setNotesPage] = useState(1);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const cliente = useMemo(() => {
     return mockClientes.find(c => c.id === id);
-  }, [id]);
+  }, [id, isEditDrawerOpen, refreshTrigger]);
 
   const processosDoCliente = useMemo(() => {
     if (!cliente) return [];
     return mockProcessos.filter((p) => p.cliente.nome === cliente.nome);
   }, [cliente]);
+
+  const historicoDoCliente = useMemo(() => {
+    return mockHistoricoClientes.filter(h => h.clienteId === id).sort((a, b) => {
+      // Sort by date descending (newest first)
+      // Format is "DD/MM/YYYY HH:MM"
+      const [dateA, timeA] = a.data.split(' ');
+      const [dateB, timeB] = b.data.split(' ');
+      
+      const [dayA, monthA, yearA] = dateA.split('/');
+      const [dayB, monthB, yearB] = dateB.split('/');
+      
+      const timestampA = new Date(`${yearA}-${monthA}-${dayA}T${timeA}`).getTime();
+      const timestampB = new Date(`${yearB}-${monthB}-${dayB}T${timeB}`).getTime();
+      
+      return timestampB - timestampA;
+    });
+  }, [id, refreshTrigger]);
+
+  const allNotes = useMemo(() => {
+    return mockNotes.filter(n => n.clienteId === id).sort((a, b) => {
+      const dateA = a.data.split(' ').reverse().join(' ');
+      const dateB = b.data.split(' ').reverse().join(' ');
+      return dateB.localeCompare(dateA);
+    });
+  }, [id, refreshTrigger]);
+
+  const NOTES_PER_PAGE = 5;
+  const paginatedNotes = useMemo(() => {
+    const start = (notesPage - 1) * NOTES_PER_PAGE;
+    return allNotes.slice(start, start + NOTES_PER_PAGE);
+  }, [allNotes, notesPage]);
+
+  const totalPages = Math.max(1, Math.ceil(allNotes.length / NOTES_PER_PAGE));
+
+  const handleSaveNote = () => {
+    if (!noteContent.trim()) return;
+    
+    addNoteToMock({
+      clienteId: id,
+      tipo: noteType,
+      content: noteContent
+    });
+    
+    setNoteContent('');
+    setNoteType('ANOTAÇÃO');
+    setRefreshTrigger(prev => prev + 1);
+    setNotesPage(1); // Go to first page to see new note
+  };
 
   if (!cliente) {
     return (
@@ -110,7 +169,7 @@ export function ClienteDetalhe() {
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-[var(--color-chumbo)] opacity-70 font-medium">
                     <div className="flex items-center gap-1.5">
                       <FileText size={14} />
-                      {cliente.cpf_cnpj}
+                      {formatCPF_CNPJ(cliente.cpf_cnpj)}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Mail size={14} />
@@ -118,7 +177,7 @@ export function ClienteDetalhe() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Clock size={14} />
-                      {cliente.telefone}
+                      {formatPhone(cliente.telefone)}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <MapPin size={14} />
@@ -139,7 +198,12 @@ export function ClienteDetalhe() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Button variant="secondary" size="sm" className="bg-[var(--color-surface-low)] border-[var(--color-surface-high)] font-semibold flex items-center gap-2 text-[11px]">
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="bg-[var(--color-surface-low)] border-[var(--color-surface-high)] font-semibold flex items-center gap-2 text-[11px]"
+                  onClick={() => setIsEditDrawerOpen(true)}
+                >
                   <Edit size={14} />
                   Editar
                 </Button>
@@ -298,7 +362,12 @@ export function ClienteDetalhe() {
                   <Card className="border-[var(--color-surface-high)] bg-[var(--color-surface-low)] shadow-sm p-5 space-y-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-bold text-[var(--color-chumbo)] uppercase tracking-wider">Dados Cadastrais</h3>
-                      <button className="text-[11px] font-bold text-blue-600 hover:underline">Editar</button>
+                      <button 
+                        className="text-[11px] font-bold text-blue-600 hover:underline"
+                        onClick={() => setIsEditDrawerOpen(true)}
+                      >
+                        Editar
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-1 gap-y-5">
@@ -354,7 +423,7 @@ export function ClienteDetalhe() {
                       <div className="pt-2 space-y-5">
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase">{cliente.tipo === 'pj' ? 'CNPJ' : 'CPF'}</label>
-                          <p className="text-sm font-bold text-[var(--color-chumbo)]">{cliente.cpf_cnpj}</p>
+                          <p className="text-sm font-bold text-[var(--color-chumbo)]">{formatCPF_CNPJ(cliente.cpf_cnpj)}</p>
                         </div>
 
                         {cliente.tipo === 'pj' && (
@@ -388,7 +457,7 @@ export function ClienteDetalhe() {
                           <div className="space-y-1">
                             <label className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase">Honorários Contratuais</label>
                             <p className="text-sm font-bold text-emerald-600">
-                              {(cliente as any).valorHonorarios ? `R$ ${(cliente as any).valorHonorarios}` : '—'}
+                              {(cliente as any).valorHonorarios ? formatCurrency((cliente as any).valorHonorarios) : '—'}
                             </p>
                           </div>
                           
@@ -446,20 +515,304 @@ export function ClienteDetalhe() {
               </div>
             )}
 
-            {activeTab !== 'resumo' && (
-              <div className="flex items-center justify-center p-20 bg-[var(--color-surface-low)]/50 border border-dashed border-[var(--color-surface-high)] rounded-xl">
-                 <div className="text-center space-y-3">
-                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-surface-high)]">
-                       <Files size={24} className="text-[var(--color-chumbo)] opacity-40" />
+            {activeTab === 'processos' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {processosDoCliente.length > 0 ? (
+                  processosDoCliente.map(p => (
+                    <Card 
+                      key={p.id} 
+                      className="border-[var(--color-surface-high)] bg-[var(--color-surface-low)] shadow-sm hover:border-[var(--color-gold)]/50 transition-all cursor-pointer overflow-hidden flex flex-col"
+                      onClick={() => navigate(`/processos/${p.id}`)}
+                    >
+                      <div className="p-5 flex-1 space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div 
+                            className="px-2 py-0.5 rounded text-[10px] font-bold border uppercase"
+                            style={{ 
+                              backgroundColor: `color-mix(in srgb, ${getAreaColor(p.area).bg}, transparent 90%)`, 
+                              color: getAreaColor(p.area).text,
+                              borderColor: `color-mix(in srgb, ${getAreaColor(p.area).bg}, transparent 80%)`
+                            }}
+                          >
+                            {p.area}
+                          </div>
+                          <StatusBadge variant={p.status === 'Ativo' ? 'success' : 'info'} className="text-[9px] px-2 py-0.5 font-bold uppercase">{p.status}</StatusBadge>
+                        </div>
+                        
+                        <div>
+                          <h3 className="text-base font-bold text-[var(--color-chumbo)] line-clamp-1">{p.numero}</h3>
+                          <p className="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">{p.titulo}</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-[var(--color-text-secondary)] uppercase opacity-60">Vara</span>
+                            <p className="text-[11px] font-bold text-[var(--color-chumbo)] truncate">{p.tribunal.vara}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-[9px] font-bold text-[var(--color-text-secondary)] uppercase opacity-60">Última Movimentação</span>
+                            <p className="text-[11px] font-bold text-[var(--color-chumbo)]">{p.ultimaMovimentacao?.data || '-'}</p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="px-5 py-3 bg-[var(--color-surface-high)]/30 border-t border-[var(--color-surface-high)] flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 overflow-hidden">
+                          <div className="h-5 w-5 rounded-full bg-[var(--color-success)]/20 flex items-center justify-center text-[var(--color-success)] text-[8px] font-bold">
+                            {cliente.responsavel.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <span className="text-[10px] font-medium text-[var(--color-chumbo)] truncate">{cliente.responsavel}</span>
+                        </div>
+                        <ChevronDown size={14} className="text-[var(--color-text-secondary)] -rotate-90" />
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="col-span-full py-20 text-center">
+                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-surface-high)] mb-4">
+                      <Briefcase size={24} className="text-[var(--color-chumbo)] opacity-40" />
                     </div>
-                    <h4 className="text-base font-bold text-[var(--color-chumbo)] opacity-60">Conteúdo de {activeTab} em desenvolvimento</h4>
-                 </div>
+                    <p className="text-sm font-bold text-[var(--color-chumbo)] opacity-60">Nenhum processo vinculado a este cliente.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'historico' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
+                {/* Linha do Tempo */}
+                <div className="space-y-6">
+                  <Card className="border-[var(--color-surface-high)] bg-[var(--color-surface-low)] shadow-sm p-8">
+                    <h3 className="text-base font-bold text-[var(--color-chumbo)] uppercase tracking-wider mb-8 flex items-center gap-2">
+                      <History size={18} className="text-[var(--color-gold)]" />
+                      Linha do Tempo
+                    </h3>
+                    
+                    <div className="space-y-10 relative">
+                      <div className="absolute left-[-21px] top-2 bottom-2 w-[2px] bg-[var(--color-surface-high)]"></div>
+                      
+                      {historicoDoCliente.length > 0 ? (
+                        historicoDoCliente.map((item) => (
+                          <div key={item.id} className="relative">
+                            <div className={cn(
+                              "absolute left-[-26px] top-1 h-3 w-3 rounded-full border-2 border-white shadow-sm ring-2 ring-offset-0",
+                              item.tipo === 'CADASTRO' ? "bg-[var(--color-success)] ring-[var(--color-success-light)]" : 
+                              item.tipo === 'ALTERACAO' ? "bg-blue-500 ring-blue-100" :
+                              item.tipo === 'FINANCEIRO' ? "bg-emerald-500 ring-emerald-100" : "bg-gray-400 ring-gray-100"
+                            )}></div>
+                            
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                              <div className="space-y-1.5 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn(
+                                    "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
+                                    item.tipo === 'CADASTRO' ? "bg-[var(--color-success-light)] text-[var(--color-success)]" : 
+                                    item.tipo === 'ALTERACAO' ? "bg-blue-50 text-blue-600" :
+                                    item.tipo === 'FINANCEIRO' ? "bg-emerald-50 text-emerald-600" : "bg-gray-100 text-gray-600"
+                                  )}>
+                                    {item.tipo}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-[var(--color-chumbo)] opacity-40">{item.data}</span>
+                                </div>
+                                <h4 className="text-sm font-bold text-[var(--color-chumbo)]">{item.descricao}</h4>
+                                
+                                {item.detalhes && item.detalhes.length > 0 && (
+                                  <div className="mt-3 bg-[var(--color-surface-high)]/20 rounded-md p-3 border border-[var(--color-surface-high)]/40 overflow-hidden">
+                                    <div className="grid grid-cols-3 text-[9px] font-bold text-[var(--color-text-secondary)] uppercase tracking-wider mb-2 border-b border-[var(--color-surface-high)]/60 pb-1.5">
+                                      <span>Campo</span>
+                                      <span>De</span>
+                                      <span>Para</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {item.detalhes.map((d: any, idx: number) => (
+                                        <div key={idx} className="grid grid-cols-3 text-[11px]">
+                                          <span className="font-bold text-[var(--color-chumbo)] opacity-60">{d.campo}</span>
+                                          <span className="text-[var(--color-error)] opacity-60 line-through truncate pr-2">{d.de}</span>
+                                          <span className="font-bold text-[var(--color-success)] truncate">{d.para}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center gap-2 shrink-0">
+                                <div className="text-right">
+                                  <p className="text-[10px] font-bold text-[var(--color-chumbo)]">{item.usuario}</p>
+                                  <p className="text-[9px] font-medium text-[var(--color-text-secondary)] uppercase">Responsável</p>
+                                </div>
+                                <div className="h-8 w-8 rounded-full bg-[var(--color-surface-high)] flex items-center justify-center text-[var(--color-chumbo)] text-[10px] font-bold border border-[var(--color-surface-high)]">
+                                  {item.usuario.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-[var(--color-text-secondary)] opacity-60 italic text-center py-10">Nenhum histórico registrado para este cliente.</p>
+                      )}
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Anotações e Atividades */}
+                <div className="space-y-6">
+                  <Card className="border-[var(--color-surface-high)] bg-[var(--color-surface-low)] shadow-sm p-8">
+                    <h3 className="text-base font-bold text-[var(--color-chumbo)] uppercase tracking-wider mb-6 flex items-center gap-2">
+                      <StickyNote size={18} className="text-[var(--color-gold)]" />
+                      Anotações e Atividades
+                    </h3>
+
+                    <div className="space-y-4">
+                      <Textarea 
+                        placeholder="Descreva aqui o contato com o cliente, anotação sobre o processo ou próxima ação..." 
+                        className="bg-[var(--color-surface)] border-[var(--color-surface-high)] text-sm min-h-[120px] focus:ring-[var(--color-gold)]"
+                        value={noteContent}
+                        onChange={(e) => setNoteContent(e.target.value)}
+                      />
+                      <div className="flex flex-wrap justify-end gap-3">
+                         <div className="flex bg-[var(--color-surface-high)]/30 rounded-lg p-1 mr-auto">
+                            <button 
+                              onClick={() => setNoteType('ANOTAÇÃO')}
+                              className={cn(
+                                "text-[9px] font-bold px-3 py-1.5 rounded-md transition-all uppercase tracking-wider",
+                                noteType === 'ANOTAÇÃO' ? "bg-white text-[var(--color-gold)] shadow-sm" : "text-[var(--color-chumbo)] opacity-40 hover:opacity-100"
+                              )}
+                            >
+                              Anotação
+                            </button>
+                            <button 
+                              onClick={() => setNoteType('LIGAÇÃO')}
+                              className={cn(
+                                "text-[9px] font-bold px-3 py-1.5 rounded-md transition-all uppercase tracking-wider",
+                                noteType === 'LIGAÇÃO' ? "bg-white text-emerald-600 shadow-sm" : "text-[var(--color-chumbo)] opacity-40 hover:opacity-100"
+                              )}
+                            >
+                              Ligação
+                            </button>
+                         </div>
+                         <Button 
+                            className="bg-[var(--color-gold)] hover:bg-[var(--color-gold)]/90 text-white font-bold text-[10px] uppercase tracking-wider flex items-center gap-2 h-9 px-4 border-none shadow-sm"
+                            onClick={handleSaveNote}
+                            disabled={!noteContent.trim()}
+                         >
+                            <Send size={14} />
+                            Salvar Registro
+                         </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-10 space-y-6">
+                       <h4 className="text-[11px] font-bold text-[var(--color-text-secondary)] uppercase tracking-widest border-b border-[var(--color-surface-high)] pb-2 flex items-center justify-between">
+                          Últimos Registros
+                          <span className="text-[9px] lowercase font-normal opacity-60">Filtrando por notas e conversas</span>
+                       </h4>
+
+                       <div className="space-y-4">
+                          {paginatedNotes.length > 0 ? (
+                            paginatedNotes.map((note) => (
+                              <div key={note.id} className="p-4 rounded-xl border border-[var(--color-surface-high)] bg-[var(--color-surface)]/40 hover:bg-[var(--color-surface)]/70 transition-colors shadow-sm">
+                                 <div className="flex items-center justify-between mb-3 border-b border-[var(--color-surface-high)]/50 pb-2">
+                                    <div className="flex items-center gap-2">
+                                       <span className={cn(
+                                         "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase",
+                                         note.tipo === 'LIGAÇÃO' ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"
+                                       )}>
+                                          {note.tipo}
+                                       </span>
+                                       <span className="text-[10px] font-bold text-[var(--color-chumbo)] opacity-40">{note.data}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                       <p className="text-[9px] font-bold text-[var(--color-chumbo)]">{note.usuario}</p>
+                                       <div className="h-5 w-5 rounded-full bg-[var(--color-surface-high)] flex items-center justify-center text-[var(--color-chumbo)] text-[8px] font-bold">
+                                          {note.usuario.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                                       </div>
+                                    </div>
+                                 </div>
+                                 <p className="text-xs text-[var(--color-chumbo)] leading-relaxed opacity-80">{note.content}</p>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-[var(--color-text-secondary)] opacity-60 italic text-center py-6">Nenhum registro encontrado.</p>
+                          )}
+                       </div>
+
+                       {/* Pagination */}
+                       {totalPages > 1 && (
+                         <div className="flex justify-end items-center gap-2 pt-2">
+                            <span className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase opacity-40 mr-2">Página {notesPage} de {totalPages}</span>
+                            <div className="flex gap-1">
+                               <button 
+                                 disabled={notesPage === 1}
+                                 onClick={() => setNotesPage(p => Math.max(1, p - 1))}
+                                 className="h-8 w-8 rounded-md border border-[var(--color-surface-high)] flex items-center justify-center text-[var(--color-chumbo)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-surface-high)]/20 transition-colors"
+                               >
+                                  <ChevronDown size={14} className="rotate-90" />
+                               </button>
+                               <button 
+                                 disabled={notesPage === totalPages}
+                                 onClick={() => setNotesPage(p => Math.min(totalPages, p + 1))}
+                                 className="h-8 w-8 rounded-md border border-[var(--color-surface-high)] flex items-center justify-center text-[var(--color-chumbo)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-surface-high)]/20 transition-colors"
+                               >
+                                  <ChevronDown size={14} className="-rotate-90" />
+                               </button>
+                            </div>
+                         </div>
+                       )}
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'documentos' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[
+                  { title: 'Procuração Ad Judicia', type: 'PDF', size: '145 KB', date: '20/05/2026', icon: <FileText className="text-blue-500" /> },
+                  { title: 'Contrato de Honorários', type: 'PDF', size: '2.1 MB', date: '20/05/2026', icon: <FileText className="text-emerald-500" /> },
+                  { title: 'Declaração de Hipossuficiência', type: 'PDF', size: '89 KB', date: '20/05/2026', icon: <FileText className="text-orange-500" /> }
+                ].map((doc, idx) => (
+                  <Card key={idx} className="border-[var(--color-surface-high)] bg-[var(--color-surface-low)] shadow-sm hover:shadow-md transition-all p-5 flex items-start gap-4 cursor-pointer group">
+                    <div className="h-12 w-12 rounded-lg bg-[var(--color-surface-high)] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                      {doc.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-bold text-[var(--color-chumbo)] truncate">{doc.title}</h4>
+                      <p className="text-[10px] font-medium text-[var(--color-text-secondary)] uppercase mt-1">{doc.type} • {doc.size}</p>
+                      <div className="flex items-center justify-between mt-4">
+                        <span className="text-[10px] text-[var(--color-chumbo)] opacity-40">{doc.date}</span>
+                        <Button variant="secondary" size="sm" className="h-7 text-[9px] px-2 font-bold bg-transparent border-[var(--color-surface-high)] hover:bg-[var(--color-gold)] hover:text-white hover:border-[var(--color-gold)] transition-all">Visualizar</Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+                
+                <Card className="border-dashed border-2 border-[var(--color-surface-high)] bg-transparent shadow-none p-5 flex flex-col items-center justify-center gap-3 text-center cursor-pointer hover:bg-[var(--color-gold)]/5 transition-colors min-h-[140px]">
+                   <div className="h-10 w-10 rounded-full bg-[var(--color-surface-high)] flex items-center justify-center">
+                      <Plus size={20} className="text-[var(--color-text-secondary)]" />
+                   </div>
+                   <div>
+                      <p className="text-xs font-bold text-[var(--color-chumbo)]">Upload de Documento</p>
+                      <p className="text-[10px] text-[var(--color-text-secondary)] mt-1">Arraste ou clique para selecionar</p>
+                   </div>
+                </Card>
               </div>
             )}
 
           </div>
         </main>
       </div>
+
+      <EditarClienteDrawer 
+        isOpen={isEditDrawerOpen}
+        onClose={() => setIsEditDrawerOpen(false)}
+        cliente={cliente}
+        onSave={(updatedData) => {
+          updateClienteInMock(updatedData);
+          setRefreshTrigger(prev => prev + 1);
+          setIsEditDrawerOpen(false);
+        }}
+      />
     </div>
   );
 }
