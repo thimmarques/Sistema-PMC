@@ -1,3 +1,6 @@
+import { mockFinanceiro, addFinanceiroToMock } from './financeiroData';
+import { mockProcessos } from './processosData';
+
 export const mockUsers = [
   { id: '1', email: 'admin@webhubpro.com', password: 'admin123', role: 'admin', name: 'Admin' },
   { id: '2', email: 'advogado@webhubpro.com', password: 'adv123', role: 'advogado', name: 'Advogado João' },
@@ -107,6 +110,123 @@ export function updateClienteInMock(updatedCliente: any) {
     trackChange('Estado Civil', oldQual.estadoCivil, newQual.estadoCivil);
     trackChange('RG', oldQual.rg, newQual.rg);
     trackChange('Endereço', oldQual.endereco, newQual.endereco);
+
+    // Create Financeiro if honorarios changed from 0 to a value, and none exist for this client
+    const getNumeric = (val: any) => {
+      if (!val) return 0;
+      const num = parseFloat(String(val).replace(/[^\d,-]/g, '').replace(',', '.'));
+      return isNaN(num) ? 0 : num;
+    };
+
+    const newHon = getNumeric(updatedCliente.valorHonorarios);
+    const oldHon = getNumeric(oldCliente.valorHonorarios);
+
+    if (newHon > 0 && oldHon === 0) {
+        const hasFinanceiro = mockFinanceiro.some(f => f.cliente.nome === updatedCliente.nome && f.tipo === 'Honorário');
+        if (!hasFinanceiro) {
+            const totalAmount = newHon;
+            let remainingAmount = totalAmount;
+            let baseDate = updatedCliente.dataPagamento ? new Date(updatedCliente.dataPagamento + 'T12:00:00') : new Date();
+
+            // Try to find an existing process for this client to link to
+            const relatedProcess = mockProcessos.find(p => p.cliente.nome === updatedCliente.nome);
+            const processoLink = relatedProcess ? relatedProcess.numero : 'A Vincular';
+
+            // Format lawyer name properly from slugs like "ricardo-silva"
+            let lawyerName = updatedCliente.responsavel || 'Sistema';
+            if (lawyerName === 'ricardo-silva') lawyerName = 'Dr. Ricardo Silva';
+            else if (lawyerName === 'ana-paula') lawyerName = 'Dra. Ana Paula';
+            else if (lawyerName === 'carlos-eduardo') lawyerName = 'Dr. Carlos Eduardo';
+            else if (lawyerName === 'marcos-ferreira') lawyerName = 'Dr. Marcos Ferreira';
+
+            // 1. Create Entry if exists
+            if (updatedCliente.temEntrada && updatedCliente.valorEntrada) {
+              const entryAmount = getNumeric(updatedCliente.valorEntrada);
+              remainingAmount -= entryAmount;
+
+              addFinanceiroToMock({
+                id: `fin_${Date.now()}_entry`,
+                cliente: { nome: updatedCliente.nome, area: updatedCliente.area || 'Geral' },
+                processo: processoLink,
+                advogado: { 
+                  nome: lawyerName,
+                  iniciais: lawyerName.substring(0, 2).toUpperCase() 
+                },
+                tipo: 'Honorário',
+                descricao: `Honorários Contratuais - Entrada`,
+                vencimento: { 
+                  data: baseDate.toLocaleDateString('pt-BR'), 
+                  statusText: 'Pago', 
+                  isVencido: false, 
+                  isPago: true 
+                },
+                valor: { 
+                  amount: `R$ ${updatedCliente.valorEntrada}`, 
+                },
+                status: 'Pago'
+              });
+              
+              baseDate.setMonth(baseDate.getMonth() + 1);
+            }
+
+            // 2. Create installments
+            const numParcelas = parseInt(updatedCliente.parcelas || (updatedCliente.formaPagamento === 'avista' ? '0' : '1'), 10);
+            
+            if (numParcelas > 0 && remainingAmount > 0) {
+              const parcelValue = (remainingAmount / numParcelas).toFixed(2).replace('.', ',');
+
+              for (let i = 1; i <= numParcelas; i++) {
+                const installmentDate = new Date(baseDate);
+                installmentDate.setMonth(baseDate.getMonth() + (i - 1));
+
+                addFinanceiroToMock({
+                  id: `fin_${Date.now()}_${i}`,
+                  cliente: { nome: updatedCliente.nome, area: updatedCliente.area || 'Geral' },
+                  processo: processoLink,
+                  advogado: { 
+                    nome: lawyerName,
+                    iniciais: lawyerName.substring(0, 2).toUpperCase() 
+                  },
+                  tipo: 'Honorário',
+                  descricao: `Honorários Contratuais - ${numParcelas > 1 ? 'Parcela ' + i + '/' + numParcelas : 'Saldo Ativo'}`,
+                  vencimento: { 
+                    data: installmentDate.toLocaleDateString('pt-BR'), 
+                    statusText: i === 1 && !updatedCliente.temEntrada && updatedCliente.formaPagamento === 'avista' ? 'Pago' : 'A Vencer', 
+                    isVencido: false, 
+                    isPago: i === 1 && !updatedCliente.temEntrada && updatedCliente.formaPagamento === 'avista'
+                  },
+                  valor: { 
+                    amount: `R$ ${parcelValue}`, 
+                    parcelas: numParcelas > 1 ? `${i}/${numParcelas}` : undefined 
+                  },
+                  status: i === 1 && !updatedCliente.temEntrada && updatedCliente.formaPagamento === 'avista' ? 'Pago' : 'Pendente'
+                });
+              }
+            } else if (remainingAmount > 0 && updatedCliente.formaPagamento === 'avista') {
+                addFinanceiroToMock({
+                    id: `fin_${Date.now()}_avista`,
+                    cliente: { nome: updatedCliente.nome, area: updatedCliente.area || 'Geral' },
+                    processo: processoLink,
+                    advogado: { 
+                      nome: lawyerName,
+                      iniciais: lawyerName.substring(0, 2).toUpperCase() 
+                    },
+                    tipo: 'Honorário',
+                    descricao: `Honorários Contratuais - À Vista`,
+                    vencimento: { 
+                      data: baseDate.toLocaleDateString('pt-BR'), 
+                      statusText: 'Pago', 
+                      isVencido: false, 
+                      isPago: true
+                    },
+                    valor: { 
+                      amount: `R$ ${remainingAmount.toFixed(2).replace('.', ',')}`, 
+                    },
+                    status: 'Pago'
+                  });
+            }
+        }
+    }
 
     mockClientes[index] = { ...mockClientes[index], ...updatedCliente };
     

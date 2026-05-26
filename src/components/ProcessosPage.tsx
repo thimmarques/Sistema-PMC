@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Topbar } from './Topbar';
 import { Sidebar } from './Sidebar';
+import { NovoProcessoModal } from './Modals/NovoProcessoModal';
 import { 
   Button, 
   Input, 
@@ -42,13 +43,14 @@ export function ProcessosPage() {
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [currentPage, setCurrentPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [isNovoProcessoModalOpen, setIsNovoProcessoModalOpen] = useState(false);
   
   const itemsPerPage = 10;
 
   const filteredProcessos = useMemo(() => {
     return mockProcessos.filter(p => {
       const matchesSearch = 
-        p.numero.includes(searchTerm) || 
+        p.numero.toLowerCase().includes(searchTerm.toLowerCase()) || 
         p.cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.titulo.toLowerCase().includes(searchTerm.toLowerCase());
       
@@ -57,7 +59,7 @@ export function ProcessosPage() {
 
       return matchesSearch && matchesArea && matchesStatus;
     });
-  }, [searchTerm, areaFilter, statusFilter]);
+  }, [searchTerm, areaFilter, statusFilter, mockProcessos]);
 
   const totalPages = Math.ceil(filteredProcessos.length / itemsPerPage);
   const paginatedProcessos = filteredProcessos.slice(
@@ -97,7 +99,10 @@ export function ProcessosPage() {
                 <h1 className="text-2xl font-bold text-[var(--color-chumbo)]">Processos</h1>
                 <p className="text-xs text-[var(--color-text-secondary)] font-medium">WebHubPro ERP / Processos</p>
               </div>
-              <Button className="bg-[var(--color-gold)] hover:bg-[var(--color-gold)]/90 text-white font-semibold flex items-center gap-2">
+              <Button 
+                onClick={() => setIsNovoProcessoModalOpen(true)}
+                className="bg-[var(--color-gold)] hover:bg-[var(--color-gold)]/90 text-white font-semibold flex items-center gap-2"
+              >
                 <Plus size={18} />
                 Novo Processo
               </Button>
@@ -140,15 +145,7 @@ export function ProcessosPage() {
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                   />
-                   <Select 
-                    className="bg-[var(--color-surface)] border-[var(--color-surface-high)] text-sm lg:w-[170px]"
-                    options={[
-                        { label: 'Todos Tribunais', value: 'Todos' },
-                        { label: 'TJSP', value: 'TJSP' },
-                        { label: 'TRT-2', value: 'TRT-2' },
-                        { label: 'JEF/INSS', value: 'JEF/INSS' },
-                    ]}
-                  />
+
                   <Select 
                     className="bg-[var(--color-surface)] border-[var(--color-surface-high)] text-sm lg:w-[160px]"
                     options={[
@@ -425,6 +422,11 @@ export function ProcessosPage() {
           </div>
         </main>
       </div>
+
+      <NovoProcessoModal 
+        isOpen={isNovoProcessoModalOpen} 
+        onClose={() => setIsNovoProcessoModalOpen(false)} 
+      />
     </div>
   );
 }

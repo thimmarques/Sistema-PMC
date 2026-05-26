@@ -21,7 +21,7 @@ import {
   Select
 } from './ui';
 import { Search, Filter, Users, ChevronLeft, ChevronRight, Edit, Trash2, X, ChevronDown, Plus, MoreHorizontal, Star, Eye } from 'lucide-react';
-import { mockClientes, addClienteToMock, removeClienteFromMock } from '../data/mockData';
+import { mockClientes, addClienteToMock, removeClienteFromMock, updateClienteInMock } from '../data/mockData';
 import { addProcessoToMock, Processo } from '../data/processosData';
 import { addFinanceiroToMock, TransacaoFinanceira } from '../data/financeiroData';
 import { NovoClienteModal, Step1Data } from './Modals/NovoClienteModal';
@@ -135,11 +135,30 @@ export function ClientesPage() {
         valorHonorarios: step2Data.valorHonorarios,
         formaPagamento: step2Data.formaPagamento,
         parcelas: step2Data.parcelas,
+        temEntrada: step2Data.temEntrada,
+        valorEntrada: step2Data.valorEntrada,
+        dataPagamento: step2Data.dataPagamento,
         qualificacao: step2Data.qualificacao,
         areaData: step2Data.areaData,
-        polo: step2Data.areaData[step1Data.areasDireito[0]]?.polo || 
-              (step2Data.areaData[step1Data.areasDireito[0]]?.reuAutor?.toLowerCase() === 'autor' ? 'Ativo' : 'Passivo') || 
-              'Ativo'
+        polo: (() => {
+          const area = step1Data.areasDireito[0] || 'Outros';
+          const ad = step2Data.areaData[area];
+          if (!ad) return 'Ativo';
+          
+          if (ad.polo) {
+            if (ad.polo === 'reu') return 'Passivo';
+            return ad.polo; // 'Ativo', 'Passivo'
+          }
+          
+          if (ad.reuAutor) {
+            const val = ad.reuAutor.toLowerCase();
+            if (val === 'ativo' || val === 'autor') return 'Ativo';
+            if (val === 'passivo' || val === 'reu') return 'Passivo';
+            return ad.reuAutor;
+          }
+          
+          return 'Ativo';
+        })()
       };
       
       addClienteToMock(novoCliente);
@@ -149,6 +168,9 @@ export function ClientesPage() {
         const ad = step2Data.areaData[area];
         if (ad) {
           const valorHonorariosStr = step2Data.valorHonorarios ? `R$ ${step2Data.valorHonorarios}` : 'R$ 0,00';
+          
+          const currentPolo = ad.polo === 'reu' ? 'Passivo' : (ad.polo || (ad.reuAutor?.toLowerCase().includes('autor') ? 'Ativo' : (ad.reuAutor?.toLowerCase().includes('reu') ? 'Passivo' : 'Ativo')));
+          
           const processo: Processo = {
             id: `proc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             numero: `(Aguardando Numeração) - ${area}`,
@@ -159,12 +181,12 @@ export function ClientesPage() {
             status: 'Ativo',
             responsavel: { nome: novoCliente.responsavel },
             valorCausa: ad.valorDaCausa || ad.valorDebito || 'R$ 0,00',
-            financeiroPago: 'R$ 0,00', // Initially zero received
+            financeiroPago: step2Data.temEntrada ? `R$ ${step2Data.valorEntrada}` : 'R$ 0,00',
             dataDistribuicao: ad.dataPropositura || new Date().toLocaleDateString('pt-BR'),
             ultimaMovimentacao: new Date().toLocaleDateString('pt-BR'),
             faseAtual: ad.faseProcessual || 'Atendimento Inicial',
-            poloAtivo: ad.polo === 'Ativo' ? nomeCliente : (ad.reuAutor?.toLowerCase() === 'autor' ? nomeCliente : 'A definir'),
-            poloPassivo: ad.polo === 'Passivo' ? nomeCliente : (ad.reuAutor?.toLowerCase() === 'reu' ? nomeCliente : (ad.contraparte || ad.empresa || 'A definir')),
+            poloAtivo: currentPolo === 'Ativo' ? nomeCliente : (ad.reuAutor?.toLowerCase().includes('autor') ? nomeCliente : 'A definir'),
+            poloPassivo: currentPolo === 'Passivo' ? nomeCliente : (ad.reuAutor?.toLowerCase().includes('reu') ? nomeCliente : (ad.contraparte || ad.empresa || 'A definir')),
             comarca: ad.comarca || ''
           };
           addProcessoToMock(processo);
@@ -174,12 +196,17 @@ export function ClientesPage() {
       // 3. Criar Transação Financeira (Se preenchida honorários)
       if (step2Data.valorHonorarios) {
         const totalAmount = parseFloat(step2Data.valorHonorarios.replace(/[^\d,-]/g, '').replace(',', '.'));
-        const numParcelas = parseInt(step2Data.parcelas || '1', 10);
-        const parcelValue = (totalAmount / numParcelas).toFixed(2).replace('.', ',');
+        
+        let remainingAmount = totalAmount;
+        let baseDate = step2Data.dataPagamento ? new Date(step2Data.dataPagamento + 'T12:00:00') : new Date();
 
-        for (let i = 1; i <= numParcelas; i++) {
-          const transacao: TransacaoFinanceira = {
-            id: `fin_${Date.now()}_${i}`,
+        // 3a. Criar Entrada se houver
+        if (step2Data.temEntrada && step2Data.valorEntrada) {
+          const entryAmount = parseFloat(step2Data.valorEntrada.replace(/[^\d,-]/g, '').replace(',', '.'));
+          remainingAmount -= entryAmount;
+
+          const transacaoEntrada: TransacaoFinanceira = {
+            id: `fin_${Date.now()}_entry`,
             cliente: { nome: nomeCliente, area: step1Data.areasDireito[0] || 'Geral' },
             processo: 'A Vincular',
             advogado: { 
@@ -189,53 +216,91 @@ export function ClientesPage() {
               iniciais: novoCliente.responsavel.substring(0, 2).toUpperCase() 
             },
             tipo: 'Honorário',
-            descricao: `Honorários Contratuais - ${step2Data.formaPagamento === 'avista' ? 'À Vista' : 'Parcela ' + i + '/' + numParcelas}`,
+            descricao: `Honorários Contratuais - Entrada`,
             vencimento: { 
-              data: new Date(Date.now() + (15 + (i - 1) * 30) * 86400000).toLocaleDateString('pt-BR'), 
-              statusText: 'A Vencer', 
+              data: baseDate.toLocaleDateString('pt-BR'), 
+              statusText: 'Pago', 
               isVencido: false, 
-              isPago: false 
+              isPago: true 
             },
             valor: { 
-              amount: `R$ ${parcelValue}`, 
-              parcelas: numParcelas > 1 ? `${i}/${numParcelas}` : undefined 
+              amount: `R$ ${step2Data.valorEntrada}`, 
             },
-            status: 'Pendente'
+            status: 'Pago'
           };
-          addFinanceiroToMock(transacao);
+          addFinanceiroToMock(transacaoEntrada);
+          
+          // Increment base date for next installments (30 days from entry)
+          baseDate.setMonth(baseDate.getMonth() + 1);
+        }
+
+        // 3b. Criar Parcelas do Saldo
+        const numParcelas = parseInt(step2Data.parcelas || (step2Data.formaPagamento === 'avista' ? '0' : '1'), 10);
+        
+        if (numParcelas > 0 && remainingAmount > 0) {
+          const parcelValue = (remainingAmount / numParcelas).toFixed(2).replace('.', ',');
+
+          for (let i = 1; i <= numParcelas; i++) {
+            const installmentDate = new Date(baseDate);
+            installmentDate.setMonth(baseDate.getMonth() + (i - 1));
+
+            const transacao: TransacaoFinanceira = {
+              id: `fin_${Date.now()}_${i}`,
+              cliente: { nome: nomeCliente, area: step1Data.areasDireito[0] || 'Geral' },
+              processo: 'A Vincular',
+              advogado: { 
+                nome: novoCliente.responsavel === 'ricardo-silva' ? 'Dr. Ricardo Silva' : 
+                      novoCliente.responsavel === 'ana-paula' ? 'Dra. Ana Paula' : 
+                      novoCliente.responsavel === 'carlos-eduardo' ? 'Dr. Carlos Eduardo' : novoCliente.responsavel,
+                iniciais: novoCliente.responsavel.substring(0, 2).toUpperCase() 
+              },
+              tipo: 'Honorário',
+              descricao: `Honorários Contratuais - ${numParcelas > 1 ? 'Parcela ' + i + '/' + numParcelas : 'Saldo Ativo'}`,
+              vencimento: { 
+                data: installmentDate.toLocaleDateString('pt-BR'), 
+                statusText: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista' ? 'Pago' : 'A Vencer', 
+                isVencido: false, 
+                isPago: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista'
+              },
+              valor: { 
+                amount: `R$ ${parcelValue}`, 
+                parcelas: numParcelas > 1 ? `${i}/${numParcelas}` : undefined 
+              },
+              status: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista' ? 'Pago' : 'Pendente'
+            };
+            addFinanceiroToMock(transacao);
+          }
+        } else if (remainingAmount > 0 && step2Data.formaPagamento === 'avista') {
+            // Case for À Vista without Entrada (the whole amount is one payment)
+            const transacao: TransacaoFinanceira = {
+                id: `fin_${Date.now()}_avista`,
+                cliente: { nome: nomeCliente, area: step1Data.areasDireito[0] || 'Geral' },
+                processo: 'A Vincular',
+                advogado: { 
+                  nome: novoCliente.responsavel === 'ricardo-silva' ? 'Dr. Ricardo Silva' : 
+                        novoCliente.responsavel === 'ana-paula' ? 'Dra. Ana Paula' : 
+                        novoCliente.responsavel === 'carlos-eduardo' ? 'Dr. Carlos Eduardo' : novoCliente.responsavel,
+                  iniciais: novoCliente.responsavel.substring(0, 2).toUpperCase() 
+                },
+                tipo: 'Honorário',
+                descricao: `Honorários Contratuais - À Vista`,
+                vencimento: { 
+                  data: baseDate.toLocaleDateString('pt-BR'), 
+                  statusText: 'Pago', 
+                  isVencido: false, 
+                  isPago: true
+                },
+                valor: { 
+                  amount: `R$ ${remainingAmount.toFixed(2).replace('.', ',')}`, 
+                },
+                status: 'Pago'
+              };
+              addFinanceiroToMock(transacao);
         }
       }
 
-      // 4. Criar Compromisso Inicial na Agenda associado apenas ao Cliente (como sugerido para crescimento)
-      const dataSugerida = new Date(Date.now() + 2 * 86400000); // Daqui 2 dias
-      import('../data/audienciasData').then(({ addAudienciaToMock }) => {
-        const agenda: any = {
-           id: `agnd_${Date.now()}`,
-           data: dataSugerida.toISOString().split('T')[0],
-           data_formatada: dataSugerida.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase(),
-           dia: dataSugerida.getDate().toString().padStart(2, '0'),
-           mes: dataSugerida.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase(),
-           ano: dataSugerida.getFullYear().toString(),
-           hora_inicio: '10:00',
-           hora_fim: '11:00',
-           processo: 'A Atribuir',
-           titulo: 'Reunião de Alinhamento Inicial',
-           area: step1Data.areasDireito[0] || 'Geral',
-           cliente: nomeCliente,
-           local: 'Sala de Reuniões 1 (Sede)',
-           advogado: {
-             nome: novoCliente.responsavel,
-             iniciais: novoCliente.responsavel.substring(0, 2),
-             cor: '#6B21A8'
-           },
-           tipo: 'Atendimento',
-           status: 'Agendada'
-        };
-        addAudienciaToMock(agenda);
-      });
-
       setIsModalOpen(false);
-      showToast('Cadastro mestre criado: Cliente, Processos, Financeiro e Agenda vinculados!', 'success');
+      showToast('Cadastro mestre criado: Cliente, Processos e Financeiro vinculados!', 'success');
       setSearchTerm(' '); // Trigger um re-render
       setTimeout(() => setSearchTerm(''), 50);
     }
@@ -247,9 +312,8 @@ export function ClientesPage() {
   };
 
   const handleUpdateCliente = (data: any) => {
-    const index = mockClientes.findIndex(c => c.id === data.id);
-    if (index !== -1) {
-      mockClientes[index] = data;
+    const success = updateClienteInMock(data);
+    if (success) {
       showToast('Cliente atualizado com sucesso!', 'success');
     } else {
       showToast('Erro ao atualizar cliente.', 'error');

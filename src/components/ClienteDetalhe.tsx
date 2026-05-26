@@ -34,6 +34,7 @@ import { mockProcessos } from '../data/processosData';
 import { getAreaColor } from '../lib/area-colors';
 import { formatCPF_CNPJ, formatPhone, formatCurrency } from '../lib/formatters';
 import { EditarClienteDrawer } from './Modals/EditarClienteDrawer';
+import { NovoProcessoModal } from './Modals/NovoProcessoModal';
 
 export function ClienteDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +42,7 @@ export function ClienteDetalhe() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'resumo' | 'processos' | 'historico' | 'documentos'>('resumo');
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [isNovoProcessoModalOpen, setIsNovoProcessoModalOpen] = useState(false);
   const [noteContent, setNoteContent] = useState('');
   const [noteType, setNoteType] = useState<'ANOTAÇÃO' | 'LIGAÇÃO'>('ANOTAÇÃO');
   const [notesPage, setNotesPage] = useState(1);
@@ -52,8 +54,10 @@ export function ClienteDetalhe() {
 
   const processosDoCliente = useMemo(() => {
     if (!cliente) return [];
-    return mockProcessos.filter((p) => p.cliente.nome === cliente.nome);
-  }, [cliente]);
+    return mockProcessos.filter((p) => 
+      p.cliente.nome.trim().toLowerCase() === cliente.nome.trim().toLowerCase()
+    );
+  }, [cliente, mockProcessos]);
 
   const historicoDoCliente = useMemo(() => {
     return mockHistoricoClientes.filter(h => h.clienteId === id).sort((a, b) => {
@@ -215,7 +219,10 @@ export function ClienteDetalhe() {
                   <MessageCircle size={14} className="text-[#25D366]" />
                   WhatsApp
                 </Button>
-                <Button className="bg-[var(--color-gold)] hover:bg-[var(--color-gold)]/90 text-white font-semibold flex items-center gap-2 text-[11px] px-4 py-2 h-auto shadow-sm">
+                <Button 
+                  onClick={() => setIsNovoProcessoModalOpen(true)}
+                  className="bg-[var(--color-gold)] hover:bg-[var(--color-gold)]/90 text-white font-semibold flex items-center gap-2 text-[11px] px-4 py-2 h-auto shadow-sm"
+                >
                   <Plus size={16} />
                   Novo Processo
                 </Button>
@@ -812,6 +819,12 @@ export function ClienteDetalhe() {
           setRefreshTrigger(prev => prev + 1);
           setIsEditDrawerOpen(false);
         }}
+      />
+
+      <NovoProcessoModal 
+        isOpen={isNovoProcessoModalOpen} 
+        onClose={() => setIsNovoProcessoModalOpen(false)} 
+        initialClientId={cliente.id}
       />
     </div>
   );

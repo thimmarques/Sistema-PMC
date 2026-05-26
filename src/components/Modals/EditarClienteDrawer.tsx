@@ -20,7 +20,13 @@ export function EditarClienteDrawer({ isOpen, onClose, cliente, onSave }: Editar
   const [commonData, setCommonData] = useState({
     isVIP: false,
     responsavel: '',
-    observacoes: ''
+    observacoes: '',
+    valorHonorarios: '',
+    formaPagamento: '',
+    parcelas: '',
+    temEntrada: false,
+    valorEntrada: '',
+    dataPagamento: ''
   });
   const [errors, setErrors] = useState<Record<string, any>>({});
 
@@ -75,7 +81,10 @@ export function EditarClienteDrawer({ isOpen, onClose, cliente, onSave }: Editar
         observacoes: cliente.observacoes || '',
         valorHonorarios: formatCurrencyInput(cliente.valorHonorarios) || '',
         formaPagamento: cliente.formaPagamento || '',
-        parcelas: cliente.parcelas || ''
+        parcelas: cliente.parcelas || '',
+        temEntrada: cliente.temEntrada || false,
+        valorEntrada: formatCurrencyInput(cliente.valorEntrada) || '',
+        dataPagamento: cliente.dataPagamento || ''
       });
       
       setErrors({});

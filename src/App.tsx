@@ -15,6 +15,10 @@ import { ProcessosPage } from './components/ProcessosPage';
 import { ProcessoDetalhe } from './components/ProcessoDetalhe';
 import { FinanceiroPage } from './components/FinanceiroPage';
 import { AudienciasPage } from './components/AudienciasPage';
+import { AgendaPage } from './components/AgendaPage';
+import { RelatoriosPage } from './components/RelatoriosPage';
+import { EquipePage } from './components/EquipePage';
+import { ConfiguracoesPage } from './components/ConfiguracoesPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 export default function App() {
@@ -73,10 +77,42 @@ export default function App() {
               } 
             />
             <Route 
+              path="/agenda" 
+              element={
+                <ProtectedRoute>
+                  <AgendaPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/audiencias" 
               element={
                 <ProtectedRoute>
                   <AudienciasPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/relatorios" 
+              element={
+                <ProtectedRoute>
+                  <RelatoriosPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/equipe" 
+              element={
+                <ProtectedRoute>
+                  <EquipePage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/configuracoes" 
+              element={
+                <ProtectedRoute>
+                  <ConfiguracoesPage />
                 </ProtectedRoute>
               } 
             />

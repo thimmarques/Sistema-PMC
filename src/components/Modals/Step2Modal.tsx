@@ -25,7 +25,13 @@ export function Step2Modal({ isOpen, step1Data, onBack, onClose, onSave }: Step2
   const [commonData, setCommonData] = useState({
     isVIP: false,
     responsavel: '',
-    observacoes: ''
+    observacoes: '',
+    valorHonorarios: '',
+    formaPagamento: '',
+    parcelas: '',
+    temEntrada: false,
+    valorEntrada: '',
+    dataPagamento: ''
   });
   const [errors, setErrors] = useState<Record<string, any>>({});
 
@@ -40,7 +46,13 @@ export function Step2Modal({ isOpen, step1Data, onBack, onClose, onSave }: Step2
       setCommonData({
         isVIP: false,
         responsavel: '',
-        observacoes: ''
+        observacoes: '',
+        valorHonorarios: '',
+        formaPagamento: '',
+        parcelas: '',
+        temEntrada: false,
+        valorEntrada: '',
+        dataPagamento: ''
       });
       setErrors({});
     }

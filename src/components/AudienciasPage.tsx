@@ -11,6 +11,7 @@ import {
   Users2,
   AlertCircle,
   CheckCircle2,
+  XCircle,
   Gavel,
   Briefcase,
   Trash2,
@@ -69,6 +70,11 @@ export function AudienciasPage() {
   }, [filteredAudiencias]);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  const totalAudiencias = filteredAudiencias.length;
+  const agendadas = filteredAudiencias.filter(a => a.status === 'Agendada').length;
+  const realizadas = filteredAudiencias.filter(a => a.status === 'Realizada').length;
+  const canceladas = filteredAudiencias.filter(a => a.status === 'Cancelada').length;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--color-surface)]">
@@ -156,7 +162,7 @@ export function AudienciasPage() {
                   <Gavel size={20} />
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-2xl font-bold text-[var(--color-chumbo)]">9</span>
+                  <span className="text-2xl font-bold text-[var(--color-chumbo)]">{totalAudiencias}</span>
                   <span className="text-[11px] font-bold text-[var(--color-text-secondary)] uppercase">audiências</span>
                 </div>
               </Card>
@@ -165,26 +171,26 @@ export function AudienciasPage() {
                   <Calendar size={20} />
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-2xl font-bold text-[var(--color-chumbo)]">0</span>
+                  <span className="text-2xl font-bold text-[var(--color-chumbo)]">{agendadas}</span>
                   <span className="text-[11px] font-bold text-[var(--color-text-secondary)] uppercase">agendadas</span>
                 </div>
               </Card>
               <Card className="flex items-center p-5 gap-4 bg-[var(--color-surface-low)] border-[var(--color-surface-high)]">
-                <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600">
-                  <Clock size={20} />
+                <div className="h-10 w-10 rounded-lg bg-[var(--color-success-light)] flex items-center justify-center text-[var(--color-success)]">
+                  <CheckCircle2 size={20} />
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-2xl font-bold text-[var(--color-chumbo)]">0</span>
-                  <span className="text-[11px] font-bold text-[var(--color-text-secondary)] uppercase">nesta semana</span>
+                  <span className="text-2xl font-bold text-[var(--color-chumbo)]">{realizadas}</span>
+                  <span className="text-[11px] font-bold text-[var(--color-text-secondary)] uppercase">realizadas</span>
                 </div>
               </Card>
               <Card className="flex items-center p-5 gap-4 bg-[var(--color-surface-low)] border-[var(--color-surface-high)]">
                 <div className="h-10 w-10 rounded-lg bg-[var(--color-error-light)] flex items-center justify-center text-[var(--color-error)] border border-[var(--color-error)]/10">
-                  <AlertCircle size={20} />
+                  <XCircle size={20} />
                 </div>
                 <div className="flex flex-col text-left">
-                  <span className="text-2xl font-bold text-[var(--color-error)]">0</span>
-                  <span className="text-[11px] font-bold text-[var(--color-error)] uppercase">prazos urgentes</span>
+                  <span className="text-2xl font-bold text-[var(--color-error)]">{canceladas}</span>
+                  <span className="text-[11px] font-bold text-[var(--color-error)] uppercase">canceladas</span>
                 </div>
               </Card>
             </div>

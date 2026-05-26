@@ -36,20 +36,69 @@ export function FinanceiroPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const itemsPerPage = 10;
 
+  const toggleRow = (rowId: string) => {
+    setExpandedRows(prev => ({
+      ...prev,
+      [rowId]: !prev[rowId]
+    }));
+  };
+
   const filteredFinanceiro = useMemo(() => {
-    return mockFinanceiro.filter(p => {
+    const list = mockFinanceiro.filter(p => {
       const matchesSearch = 
         p.processo.includes(searchTerm) || 
         p.cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.descricao.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesSearch;
     });
+
+    // Grouping logic:
+    // If multiple installments exist for the same contract, we only show the first one (1/X)
+    // and hide others unless expanded.
+    // However, the user wants us to SHOW only the first one but have a dropdown.
+    // So we'll filter the list to only include "non-repeated" entries for the main view,
+    // or entries that are Parcela 1.
+    
+    return list;
   }, [searchTerm]);
 
-  const totalPages = Math.ceil(filteredFinanceiro.length / itemsPerPage);
-  const paginatedFinanceiro = filteredFinanceiro.slice(
+  // We need to identify clusters of installments
+  const transactionGroups = useMemo(() => {
+    const groups: Record<string, typeof mockFinanceiro> = {};
+    
+    filteredFinanceiro.forEach(item => {
+      // Create a unique key for the group of installments
+      // e.g. "Cliente - Honorários Contratuais"
+      const groupKey = item.valor.parcelas 
+        ? `${item.cliente.nome}-${item.descricao.split(' - Parcela')[0]}`
+        : item.id;
+      
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(item);
+    });
+
+    // Sort items within each group so that Parcela 1 comes first
+    Object.keys(groups).forEach(key => {
+      if (groups[key].length > 1) {
+        groups[key].sort((a, b) => {
+          const aParcela = a.valor.parcelas ? parseInt(a.valor.parcelas.split('/')[0]) : 0;
+          const bParcela = b.valor.parcelas ? parseInt(b.valor.parcelas.split('/')[0]) : 0;
+          return aParcela - bParcela;
+        });
+      }
+    });
+
+    return groups;
+  }, [filteredFinanceiro]);
+
+  // The unique group keys for pagination
+  const groupedKeys = useMemo(() => Object.keys(transactionGroups), [transactionGroups]);
+
+  const totalPages = Math.ceil(groupedKeys.length / itemsPerPage);
+  const paginatedKeys = groupedKeys.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -282,97 +331,180 @@ export function FinanceiroPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paginatedFinanceiro.length > 0 ? (
-                          paginatedFinanceiro.map((p) => {
-                            const areaColors = getAreaColor(p.cliente.area);
-                            const tipoColors = getTipoColor(p.tipo);
+                        {paginatedKeys.length > 0 ? (
+                          paginatedKeys.map((groupKey) => {
+                            const group = transactionGroups[groupKey];
+                            const mainItem = group[0];
+                            const hasMultiple = group.length > 1;
+                            const isExpanded = expandedRows[groupKey];
+                            
+                            const areaColors = getAreaColor(mainItem.cliente.area);
+                            const tipoColors = getTipoColor(mainItem.tipo);
 
                             return (
-                              <TableRow key={p.id} className="hover:bg-[var(--color-gold)]/5 border-b border-[var(--color-surface-high)] group transition-colors">
-                                <TableCell className="py-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-[var(--color-surface-high)] flex items-center justify-center text-[var(--color-chumbo)] text-[10px] font-bold shrink-0">
-                                      {p.cliente.nome.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}
-                                    </div>
-                                    <div className="flex flex-col gap-0.5 min-w-[140px]">
-                                      <span className="font-bold text-[12px] text-[var(--color-chumbo)]">{p.cliente.nome}</span>
-                                      <div 
-                                        className="inline-flex w-fit px-1.5 py-0.5 rounded text-[9px] font-bold"
-                                        style={{ backgroundColor: `color-mix(in srgb, ${areaColors.bg}, transparent 90%)`, color: areaColors.text }}
-                                      >
-                                        {p.cliente.area}
+                              <React.Fragment key={groupKey}>
+                                <TableRow className={cn(
+                                  "hover:bg-[var(--color-gold)]/5 border-b border-[var(--color-surface-high)] group transition-colors",
+                                  isExpanded && "bg-[var(--color-gold)]/5"
+                                )}>
+                                  <TableCell className="py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="h-8 w-8 rounded-full bg-[var(--color-surface-high)] flex items-center justify-center text-[var(--color-chumbo)] text-[10px] font-bold shrink-0">
+                                        {mainItem.cliente.nome.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}
+                                      </div>
+                                      <div className="flex flex-col gap-0.5 min-w-[140px]">
+                                        <span className="font-bold text-[12px] text-[var(--color-chumbo)]">{mainItem.cliente.nome}</span>
+                                        <div 
+                                          className="inline-flex w-fit px-1.5 py-0.5 rounded text-[9px] font-bold"
+                                          style={{ backgroundColor: `color-mix(in srgb, ${areaColors.bg}, transparent 90%)`, color: areaColors.text }}
+                                        >
+                                          {mainItem.cliente.area}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="text-[11px] text-[var(--color-text-secondary)] font-medium font-mono">{p.processo}</span>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-6 w-6 rounded-full bg-[var(--color-gold)]/20 flex items-center justify-center text-[var(--color-gold)] text-[9px] font-bold shrink-0">
-                                      {p.advogado.iniciais}
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="text-[11px] text-[var(--color-text-secondary)] font-medium font-mono">{mainItem.processo}</span>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-6 w-6 rounded-full bg-[var(--color-gold)]/20 flex items-center justify-center text-[var(--color-gold)] text-[9px] font-bold shrink-0">
+                                        {mainItem.advogado.iniciais}
+                                      </div>
+                                      <span className="text-[11px] font-medium text-[var(--color-text-secondary)] whitespace-nowrap">{mainItem.advogado.nome}</span>
                                     </div>
-                                    <span className="text-[11px] font-medium text-[var(--color-text-secondary)] whitespace-nowrap">{p.advogado.nome}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div 
-                                    className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold"
-                                    style={{ backgroundColor: tipoColors.bg, color: tipoColors.text }}
-                                  >
-                                    {p.tipo}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <span className="text-[12px] text-[var(--color-text-secondary)] max-w-[150px] truncate block">
-                                    {p.descricao}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-col">
-                                    <span className={cn(
-                                      "text-[10px] font-medium",
-                                      p.vencimento.isVencido ? "text-[var(--color-error)]" : 
-                                      p.vencimento.isPago ? "text-[var(--color-success)]" : "text-[var(--color-text-secondary)]"
-                                    )}>
-                                      {p.vencimento.statusText}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div 
+                                      className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold"
+                                      style={{ backgroundColor: tipoColors.bg, color: tipoColors.text }}
+                                    >
+                                      {mainItem.tipo}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <span className="text-[12px] text-[var(--color-text-secondary)] max-w-[150px] truncate block">
+                                      {mainItem.descricao}
                                     </span>
-                                    <span className={cn(
-                                      "text-[11px] font-bold",
-                                      p.vencimento.isVencido ? "text-[var(--color-error)]" : 
-                                      p.vencimento.isPago ? "text-[var(--color-success)]" : "text-[var(--color-chumbo)]"
-                                    )}>
-                                      {p.vencimento.data}
-                                    </span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-col">
-                                    <span className="text-[13px] font-bold text-[var(--color-chumbo)]">
-                                      {p.valor.amount}
-                                    </span>
-                                    {p.valor.parcelas && (
-                                      <span className="text-[10px] text-[var(--color-info)] font-medium">
-                                        {p.valor.parcelas}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col">
+                                      <span className={cn(
+                                        "text-[10px] font-medium",
+                                        mainItem.vencimento.isVencido ? "text-[var(--color-error)]" : 
+                                        mainItem.vencimento.isPago ? "text-[var(--color-success)]" : "text-[var(--color-text-secondary)]"
+                                      )}>
+                                        {mainItem.vencimento.statusText}
                                       </span>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge 
-                                    variant={getStatusBadgeVariant(p.status)}
-                                    className="text-[10px] px-2 py-0.5 font-bold tracking-wide"
-                                  >
-                                    {p.status}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <button className="text-[var(--color-chumbo)] opacity-40 hover:opacity-100 transition-opacity">
-                                    <MoreHorizontal size={18} />
-                                  </button>
-                                </TableCell>
-                              </TableRow>
+                                      <span className={cn(
+                                        "text-[11px] font-bold",
+                                        mainItem.vencimento.isVencido ? "text-[var(--color-error)]" : 
+                                        mainItem.vencimento.isPago ? "text-[var(--color-success)]" : "text-[var(--color-chumbo)]"
+                                      )}>
+                                        {mainItem.vencimento.data}
+                                      </span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col">
+                                      <span className="text-[13px] font-bold text-[var(--color-chumbo)]">
+                                        {mainItem.valor.amount}
+                                      </span>
+                                      {mainItem.valor.parcelas && (
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-[10px] text-[var(--color-info)] font-medium">
+                                            {mainItem.valor.parcelas}
+                                          </span>
+                                          {hasMultiple && (
+                                            <button 
+                                              onClick={() => toggleRow(groupKey)}
+                                              className="p-0.5 hover:bg-gray-200 rounded text-[var(--color-info)] transition-transform duration-200"
+                                              style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                                            >
+                                              <ChevronRight size={14} />
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge 
+                                      variant={getStatusBadgeVariant(mainItem.status)}
+                                      className="text-[10px] px-2 py-0.5 font-bold tracking-wide"
+                                    >
+                                      {mainItem.status}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <button className="text-[var(--color-chumbo)] opacity-40 hover:opacity-100 transition-opacity">
+                                      <MoreHorizontal size={18} />
+                                    </button>
+                                  </TableCell>
+                                </TableRow>
+
+                                {/* Sub-rows for installments */}
+                                {isExpanded && group.slice(1).map((subItem) => (
+                                  <TableRow key={subItem.id} className="bg-gray-50/50 border-b border-[var(--color-surface-high)] last:border-b-2 last:border-b-[var(--color-gold)]/20 animate-in fade-in slide-in-from-top-1 duration-200">
+                                    <TableCell className="py-2 opacity-50 border-l-4 border-l-[var(--color-gold)]/20">
+                                      {/* Empty for client */}
+                                    </TableCell>
+                                    <TableCell className="py-2 opacity-50">
+                                      {/* Empty for process */}
+                                    </TableCell>
+                                    <TableCell className="py-2 opacity-50">
+                                      {/* Empty for advocate */}
+                                    </TableCell>
+                                    <TableCell className="py-2 opacity-50">
+                                      {/* Empty for type */}
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <span className="text-[10px] text-gray-500 italic ml-4">
+                                        {subItem.descricao}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <div className="flex flex-col">
+                                        <span className={cn(
+                                          "text-[9px] font-medium",
+                                          subItem.vencimento.isVencido ? "text-[var(--color-error)]" : 
+                                          subItem.vencimento.isPago ? "text-[var(--color-success)]" : "text-gray-400"
+                                        )}>
+                                          {subItem.vencimento.statusText}
+                                        </span>
+                                        <span className={cn(
+                                          "text-[10px] font-bold",
+                                          subItem.vencimento.isVencido ? "text-[var(--color-error)]" : 
+                                          subItem.vencimento.isPago ? "text-[var(--color-success)]" : "text-gray-600"
+                                        )}>
+                                          {subItem.vencimento.data}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <div className="flex flex-col">
+                                        <span className="text-[11px] font-bold text-gray-700">
+                                          {subItem.valor.amount}
+                                        </span>
+                                        <span className="text-[9px] text-gray-400">
+                                          {subItem.valor.parcelas}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="py-2">
+                                      <Badge 
+                                        variant={getStatusBadgeVariant(subItem.status)}
+                                        className="text-[8px] px-1.5 py-0 shadow-none opacity-80"
+                                      >
+                                        {subItem.status}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="py-2 text-center">
+                                      {/* No actions for subs */}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </React.Fragment>
                             );
                           })
                         ) : (
@@ -393,8 +525,8 @@ export function FinanceiroPage() {
                   {/* Pagination */}
                   <div className="flex items-center justify-between p-4 border-t border-[var(--color-surface-high)] bg-[var(--color-surface-low)]/50">
                     <p className="text-[12px] text-[var(--color-text-secondary)] font-medium">
-                      {filteredFinanceiro.length > 0 
-                        ? `Mostrando ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, filteredFinanceiro.length)} de ${filteredFinanceiro.length} lançamentos`
+                      {groupedKeys.length > 0 
+                        ? `Mostrando ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, groupedKeys.length)} de ${groupedKeys.length} contratos/lançamentos`
                         : "Nenhum lançamento para mostrar"
                       }
                     </p>
