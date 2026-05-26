@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Search, Gavel, Scale, Briefcase, HeartPulse, Coins, Info } from 'lucide-react';
+import { X, Save, Search, Gavel, Scale, Briefcase, HeartPulse, Coins, Info, Loader2 } from 'lucide-react';
 import { SidePanel } from '../ui/side-panel';
 import { Button, Input, Select, Textarea, FormField } from '../ui';
-import { mockClientes, mockUsers } from '../../data/mockData';
-import { addProcessoToMock, Processo } from '../../data/processosData';
+import { clienteService } from '../../services/clienteService';
+import { processoService } from '../../services/processoService';
+import { useData } from '../../contexts/DataContext';
+import { useToast } from '../../contexts/ToastContext';
 import { formatCurrencyInput } from '../../lib/formatters';
+import { mockUsers } from '../../data/mockData';
 
 interface NovoProcessoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave?: (processo: Processo) => void;
+  onSave?: (processo: any) => void;
   initialClientId?: string;
 }
 
@@ -50,6 +53,9 @@ const AREAS = [
 ];
 
 export function NovoProcessoModal({ isOpen, onClose, onSave, initialClientId }: NovoProcessoModalProps) {
+  const { clientes, refreshProcessos } = useData();
+  const { showToast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     clienteId: '',
     area: '',
@@ -71,13 +77,13 @@ export function NovoProcessoModal({ isOpen, onClose, onSave, initialClientId }: 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const fillFromClient = (clientId: string) => {
-    const client = mockClientes.find(c => c.id === clientId);
+    const client = clientes.find(c => c.id === clientId);
     if (!client) return;
 
     // Check if client has areaData and get the first area available
-    const areas = Object.keys(client.areaData || {});
+    const areas = Object.keys(client.area_data || {});
     const primaryArea = areas.length > 0 ? areas[0] : '';
-    const ad = primaryArea ? client.areaData[primaryArea] : null;
+    const ad = primaryArea ? client.area_data[primaryArea] : null;
 
     setFormData(prev => ({
       ...prev,
@@ -118,7 +124,7 @@ export function NovoProcessoModal({ isOpen, onClose, onSave, initialClientId }: 
       }
       setErrors({});
     }
-  }, [isOpen, initialClientId]);
+  }, [isOpen, initialClientId, clientes.length]);
 
   const handleChange = (field: string, value: any) => {
     if (field === 'clienteId') {
@@ -151,43 +157,45 @@ export function NovoProcessoModal({ isOpen, onClose, onSave, initialClientId }: 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (validate()) {
-      const selectedCliente = mockClientes.find(c => c.id === formData.clienteId);
-      const selectedResp = mockUsers.find(u => u.id === formData.responsavel) || { name: formData.responsavel };
+      setIsSubmitting(true);
+      try {
+        const selectedCliente = clientes.find(c => c.id === formData.clienteId);
+        const selectedResp = mockUsers.find(u => u.id === formData.responsavel) || { name: formData.responsavel };
 
-      const novoProcesso: Processo = {
-        id: `proc_${Date.now()}`,
-        numero: formData.numeroCnj || '(Aguardando Distribuição)',
-        titulo: formData.tipoAcao,
-        cliente: {
-          nome: selectedCliente?.nome || 'Cliente não encontrado',
-          avatar: undefined
-        },
-        area: formData.area,
-        tribunal: {
-          nome: formData.tribunal,
-          vara: formData.vara
-        },
-        status: formData.status,
-        proximaAudiencia: formData.proximaAudiencia,
-        prazoFatal: formData.prazoFatal,
-        responsavel: {
-          nome: typeof selectedResp === 'string' ? selectedResp : selectedResp.name
-        },
-        valorCausa: formData.valorCausa,
-        comarca: formData.comarca,
-        faseAtual: formData.faseAtual,
-        poloAtivo: selectedCliente?.nome || '',
-        poloPassivo: formData.poloPassivo,
-        observacoesInternas: formData.observacoes,
-        ultimaMovimentacao: new Date().toLocaleDateString('pt-BR'),
-        dataDistribuicao: formData.numeroCnj ? new Date().toLocaleDateString('pt-BR') : undefined
-      };
+        const novoProcessoData = {
+          numero: formData.numeroCnj || '(Aguardando Distribuição)',
+          titulo: formData.tipoAcao,
+          cliente_id: formData.clienteId,
+          area: formData.area,
+          tribunal_nome: formData.tribunal,
+          tribunal_vara: formData.vara,
+          status: formData.status,
+          proxima_audiencia: formData.proximaAudiencia,
+          prazo_fatal: formData.prazoFatal,
+          responsavel_nome: typeof selectedResp === 'string' ? selectedResp : selectedResp.name,
+          valor_causa: formData.valorCausa,
+          comarca: formData.comarca,
+          fase_atual: formData.faseAtual,
+          polo_ativo: selectedCliente?.nome || '',
+          polo_passivo: formData.poloPassivo,
+          observacoes_internas: formData.observacoes,
+          ultima_movimentacao: new Date().toLocaleDateString('pt-BR'),
+          data_distribuicao: formData.numeroCnj ? new Date().toLocaleDateString('pt-BR') : undefined
+        };
 
-      addProcessoToMock(novoProcesso);
-      if (onSave) onSave(novoProcesso);
-      onClose();
+        const created = await processoService.create(novoProcessoData);
+        await refreshProcessos();
+        
+        showToast('Processo cadastrado com sucesso!', 'success');
+        if (onSave) onSave(created);
+        onClose();
+      } catch (err: any) {
+        showToast(`Erro ao salvar processo: ${err.message}`, 'error');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -215,7 +223,7 @@ export function NovoProcessoModal({ isOpen, onClose, onSave, initialClientId }: 
                 <Select
                   value={formData.clienteId}
                   onChange={(e) => handleChange('clienteId', e.target.value)}
-                  options={mockClientes.map(c => ({ label: c.nome, value: c.id }))}
+                  options={clientes.map(c => ({ label: c.nome, value: c.id }))}
                   className="pl-2"
                 />
               </div>
@@ -364,11 +372,20 @@ export function NovoProcessoModal({ isOpen, onClose, onSave, initialClientId }: 
             <span>Campos marcados com * são obrigatórios</span>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <Button variant="ghost" onClick={onClose} className="text-gray-600 hover:bg-gray-50 font-medium">
+            <Button variant="ghost" onClick={onClose} disabled={isSubmitting} className="text-gray-600 hover:bg-gray-50 font-medium">
               Cancelar
             </Button>
-            <Button onClick={handleSave} className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-8 h-11 rounded-lg font-bold">
-              Salvar Processo
+            <Button 
+              onClick={handleSave} 
+              disabled={isSubmitting} 
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-8 h-11 rounded-lg font-bold min-w-[160px]"
+            >
+              {isSubmitting ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>Salvando...</span>
+                </div>
+              ) : 'Salvar Processo'}
             </Button>
           </div>
         </div>

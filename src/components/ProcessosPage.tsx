@@ -12,10 +12,12 @@ import {
   Pencil,
   Gavel,
   CheckCircle2,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import { Topbar } from './Topbar';
 import { Sidebar } from './Sidebar';
+import { useData } from '../contexts/DataContext';
 import { NovoProcessoModal } from './Modals/NovoProcessoModal';
 import { 
   Button, 
@@ -37,6 +39,7 @@ import { getAreaColor } from '../lib/area-colors';
 
 export function ProcessosPage() {
   const navigate = useNavigate();
+  const { processos, isLoading: isDataLoading } = useData();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [areaFilter, setAreaFilter] = useState('Todas');
@@ -48,18 +51,18 @@ export function ProcessosPage() {
   const itemsPerPage = 10;
 
   const filteredProcessos = useMemo(() => {
-    return mockProcessos.filter(p => {
+    return processos.filter(p => {
       const matchesSearch = 
         p.numero.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.titulo.toLowerCase().includes(searchTerm.toLowerCase());
+        (p.clientes?.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.titulo || '').toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesArea = areaFilter === 'Todas' || p.area === areaFilter;
       const matchesStatus = statusFilter === 'Todos' || p.status === statusFilter;
 
       return matchesSearch && matchesArea && matchesStatus;
     });
-  }, [searchTerm, areaFilter, statusFilter, mockProcessos]);
+  }, [searchTerm, areaFilter, statusFilter, processos]);
 
   const totalPages = Math.ceil(filteredProcessos.length / itemsPerPage);
   const paginatedProcessos = filteredProcessos.slice(
@@ -162,26 +165,26 @@ export function ProcessosPage() {
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--color-surface-high)] bg-[var(--color-surface)] shadow-sm">
                 <span className="px-2 py-0.5 rounded bg-[var(--color-surface-high)] text-[11px] font-bold text-[var(--color-chumbo)]">
-                  {mockProcessos.length}
+                  {processos.length}
                 </span>
                 <span className="text-[13px] font-medium text-[var(--color-text-secondary)]">processos</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--color-surface-high)] bg-[var(--color-surface)] shadow-sm">
                 <span className="px-2 py-0.5 rounded bg-[var(--color-info-light)] text-[11px] font-bold text-[var(--color-info)]">
-                  {mockProcessos.filter((p) => p.proximaAudiencia).length}
+                  {processos.filter((p) => p.proxima_audiencia).length}
                 </span>
                 <span className="text-[13px] font-medium text-[var(--color-text-secondary)]">com audiência</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-[var(--color-surface-high)] bg-[var(--color-surface)] shadow-sm">
                 <span className="px-2 py-0.5 rounded bg-[var(--color-error-light)] text-[11px] font-bold text-[var(--color-error)]">
-                  {mockProcessos.filter((p) => p.prazoFatal === 'VENCIDO').length}
+                  {processos.filter((p) => p.prazo_fatal === 'VENCIDO').length}
                 </span>
                 <span className="text-[13px] font-medium text-[var(--color-text-secondary)]">prazos vencidos</span>
               </div>
               <div className="flex items-center gap-2 px-4 py-2 rounded-md border border-[var(--color-surface-high)] bg-[var(--color-surface)] shadow-sm">
                 <span className="text-[14px] font-bold text-[var(--color-chumbo)]">
                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                    mockProcessos.reduce((acc, p) => acc + (parseFloat(p.valorCausa?.replace(/[^\d,-]/g, '').replace(',', '.') || '0')), 0)
+                    processos.reduce((acc, p) => acc + (parseFloat(p.valor_causa?.replace(/[^\d,-]/g, '').replace(',', '.') || '0')), 0)
                   )}
                 </span>
                 <span className="text-[13px] font-medium text-[var(--color-text-secondary)] ml-1">valor da causa geral</span>
@@ -206,16 +209,25 @@ export function ProcessosPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedProcessos.length > 0 ? (
+                    {isDataLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="py-20 text-center">
+                          <div className="flex flex-col items-center justify-center text-[var(--color-text-secondary)]">
+                            <Loader2 className="w-8 h-8 animate-spin mb-3 text-[var(--color-gold)]" />
+                            <p className="text-xs font-medium">Carregando processos...</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : paginatedProcessos.length > 0 ? (
                       paginatedProcessos.map((p) => {
                         const areaColors = getAreaColor(p.area);
-                        const initials = getInitials(p.cliente.nome);
-                        const respInitials = getInitials(p.responsavel.nome);
+                        const initials = getInitials(p.clientes?.nome || 'C');
+                        const respInitials = getInitials(p.responsavel_nome || 'R');
 
                         return (
                           <TableRow 
                             key={p.id} 
-                            onClick={() => handleOpenDetail(p)}
+                            onClick={() => navigate(`/processos/${p.id}`)}
                             className="hover:bg-[var(--color-gold)]/5 border-b border-[var(--color-surface-high)] group transition-colors cursor-pointer"
                           >
                             <TableCell className="py-4">
@@ -230,12 +242,7 @@ export function ProcessosPage() {
                                   {initials}
                                 </div>
                                 <div className="flex flex-col gap-0.5 min-w-[120px]">
-                                  <span className="font-bold text-[12px] text-[var(--color-chumbo)]">{p.cliente.nome}</span>
-                                  {p.cliente.subtitulo && (
-                                    <span className="text-[10px] text-[var(--color-text-secondary)] opacity-70 truncate max-w-[150px]">
-                                      {p.cliente.subtitulo}
-                                    </span>
-                                  )}
+                                  <span className="font-bold text-[12px] text-[var(--color-chumbo)]">{p.clientes?.nome}</span>
                                 </div>
                               </div>
                             </TableCell>
@@ -250,10 +257,10 @@ export function ProcessosPage() {
                             <TableCell>
                                 <div className="flex flex-col gap-0.5">
                                     <div className="inline-flex w-fit px-1.5 py-0.5 rounded bg-[var(--color-surface-high)] text-[var(--color-chumbo)] text-[9px] font-bold opacity-70">
-                                        {p.tribunal.nome}
+                                        {p.tribunal_nome}
                                     </div>
                                     <span className="text-[10px] text-[var(--color-text-secondary)] truncate max-w-[150px]">
-                                        {p.tribunal.vara}
+                                        {p.tribunal_vara}
                                     </span>
                                 </div>
                             </TableCell>
@@ -270,12 +277,12 @@ export function ProcessosPage() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-[11px] text-[var(--color-chumbo)] opacity-80 font-medium">
-                              {p.proximaAudiencia || '—'}
+                              {p.proxima_audiencia || '—'}
                             </TableCell>
                             <TableCell>
-                              {p.prazoFatal ? (
+                              {p.prazo_fatal ? (
                                 <Badge variant="error" className="text-[9px] px-2 py-0.5 font-bold uppercase tracking-wider rounded-md">
-                                  {p.prazoFatal}
+                                  {p.prazo_fatal}
                                 </Badge>
                               ) : (
                                 <span className="text-[11px] text-[var(--color-text-secondary)]">—</span>
@@ -286,7 +293,7 @@ export function ProcessosPage() {
                                 <div className="h-6 w-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-600 text-[9px] font-bold shrink-0">
                                   {respInitials}
                                 </div>
-                                <span className="text-[11px] font-bold text-[var(--color-chumbo)] opacity-90">{p.responsavel.nome}</span>
+                                <span className="text-[11px] font-bold text-[var(--color-chumbo)] opacity-90">{p.responsavel_nome}</span>
                               </div>
                             </TableCell>
                             <TableCell className="text-right">

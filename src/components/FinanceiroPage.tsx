@@ -10,10 +10,12 @@ import {
   Wallet,
   TrendingUp,
   AlertTriangle,
-  Percent
+  Percent,
+  Loader2
 } from 'lucide-react';
 import { Topbar } from './Topbar';
 import { Sidebar } from './Sidebar';
+import { useData } from '../contexts/DataContext';
 import { 
   Button, 
   Input, 
@@ -33,6 +35,7 @@ import { mockFinanceiro, mockAdvogadosResumo } from '../data/financeiroData';
 import { getAreaColor } from '../lib/area-colors';
 
 export function FinanceiroPage() {
+  const { financeiro, isLoading: isDataLoading } = useData();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,33 +50,23 @@ export function FinanceiroPage() {
   };
 
   const filteredFinanceiro = useMemo(() => {
-    const list = mockFinanceiro.filter(p => {
+    return financeiro.filter(p => {
       const matchesSearch = 
-        p.processo.includes(searchTerm) || 
-        p.cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.descricao.toLowerCase().includes(searchTerm.toLowerCase());
+        (p.processos?.numero || '').includes(searchTerm) || 
+        (p.clientes?.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.descricao || '').toLowerCase().includes(searchTerm.toLowerCase());
       return matchesSearch;
     });
-
-    // Grouping logic:
-    // If multiple installments exist for the same contract, we only show the first one (1/X)
-    // and hide others unless expanded.
-    // However, the user wants us to SHOW only the first one but have a dropdown.
-    // So we'll filter the list to only include "non-repeated" entries for the main view,
-    // or entries that are Parcela 1.
-    
-    return list;
-  }, [searchTerm]);
+  }, [searchTerm, financeiro]);
 
   // We need to identify clusters of installments
   const transactionGroups = useMemo(() => {
-    const groups: Record<string, typeof mockFinanceiro> = {};
+    const groups: Record<string, any[]> = {};
     
-    filteredFinanceiro.forEach(item => {
+    filteredFinanceiro.forEach((item: any) => {
       // Create a unique key for the group of installments
-      // e.g. "Cliente - Honorários Contratuais"
-      const groupKey = item.valor.parcelas 
-        ? `${item.cliente.nome}-${item.descricao.split(' - Parcela')[0]}`
+      const groupKey = item.parcelas 
+        ? `${item.clientes?.nome}-${(item.descricao || '').split(' - Parcela')[0]}`
         : item.id;
       
       if (!groups[groupKey]) groups[groupKey] = [];
@@ -84,8 +77,8 @@ export function FinanceiroPage() {
     Object.keys(groups).forEach(key => {
       if (groups[key].length > 1) {
         groups[key].sort((a, b) => {
-          const aParcela = a.valor.parcelas ? parseInt(a.valor.parcelas.split('/')[0]) : 0;
-          const bParcela = b.valor.parcelas ? parseInt(b.valor.parcelas.split('/')[0]) : 0;
+          const aParcela = a.parcelas ? parseInt(a.parcelas.split('/')[0]) : 0;
+          const bParcela = b.parcelas ? parseInt(b.parcelas.split('/')[0]) : 0;
           return aParcela - bParcela;
         });
       }
@@ -141,39 +134,39 @@ export function FinanceiroPage() {
   };
 
   const stats = useMemo(() => {
-    const aReceber = mockFinanceiro
+    const aReceber = financeiro
       .filter(f => f.status !== 'Pago')
-      .reduce((acc, f) => acc + parseCurrency(f.valor.amount), 0);
+      .reduce((acc, f) => acc + parseCurrency(f.valor_amount), 0);
     
-    const recebidoMes = mockFinanceiro
-      .filter(f => f.status === 'Pago' && isThisMonth(f.vencimento.data))
-      .reduce((acc, f) => acc + parseCurrency(f.valor.amount), 0);
+    const recebidoMes = financeiro
+      .filter(f => f.status === 'Pago' && isThisMonth(f.vencimento_data))
+      .reduce((acc, f) => acc + parseCurrency(f.valor_amount), 0);
 
-    const emAtraso = mockFinanceiro
-      .filter(f => (f.status === 'Vencido' || (!f.vencimento.isPago && f.vencimento.isVencido)))
-      .reduce((acc, f) => acc + parseCurrency(f.valor.amount), 0);
+    const emAtraso = financeiro
+      .filter(f => (f.status === 'Vencido' || (!f.is_pago && f.vencimento_status === 'Vencido')))
+      .reduce((acc, f) => acc + parseCurrency(f.valor_amount), 0);
 
-    const countAReceber = mockFinanceiro.filter(f => f.status !== 'Pago').length;
-    const countRecebidoMes = mockFinanceiro.filter(f => f.status === 'Pago' && isThisMonth(f.vencimento.data)).length;
-    const countEmAtraso = mockFinanceiro.filter(f => (f.status === 'Vencido' || (!f.vencimento.isPago && f.vencimento.isVencido))).length;
+    const countAReceber = financeiro.filter(f => f.status !== 'Pago').length;
+    const countRecebidoMes = financeiro.filter(f => f.status === 'Pago' && isThisMonth(f.vencimento_data)).length;
+    const countEmAtraso = financeiro.filter(f => (f.status === 'Vencido' || (!f.is_pago && f.vencimento_status === 'Vencido'))).length;
 
     return { aReceber, recebidoMes, emAtraso, countAReceber, countRecebidoMes, countEmAtraso };
-  }, [mockFinanceiro.length]);
+  }, [financeiro]);
 
   const dynamicAdvogadosResumo = useMemo(() => {
     // Get unique lawyers names
-    const lawyerNames = Array.from(new Set(mockFinanceiro.map(f => f.advogado.nome)));
+    const lawyerNames = Array.from(new Set(financeiro.map(f => f.advogado_nome).filter(Boolean)));
     if (lawyerNames.length === 0) return [];
 
     return lawyerNames.map(name => {
-      const advTrans = mockFinanceiro.filter(f => f.advogado.nome === name);
-      const initials = advTrans[0]?.advogado.iniciais || name.substring(0, 2).toUpperCase();
-      const aReceber = advTrans.filter(f => f.status !== 'Pago').reduce((acc, f) => acc + parseCurrency(f.valor.amount), 0);
-      const recebido = advTrans.filter(f => f.status === 'Pago' && isThisMonth(f.vencimento.data)).reduce((acc, f) => acc + parseCurrency(f.valor.amount), 0);
+      const advTrans = financeiro.filter(f => f.advogado_nome === name);
+      const initials = name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+      const aReceber = advTrans.filter(f => f.status !== 'Pago').reduce((acc, f) => acc + parseCurrency(f.valor_amount), 0);
+      const recebido = advTrans.filter(f => f.status === 'Pago' && isThisMonth(f.vencimento_data)).reduce((acc, f) => acc + parseCurrency(f.valor_amount), 0);
       const total = aReceber + recebido;
       const taxa = total > 0 ? (recebido / total * 100).toFixed(0) + '%' : '0%';
       
-      const areas = Array.from(new Set(advTrans.map(f => f.cliente.area)));
+      const areas = Array.from(new Set(advTrans.map(f => f.clientes?.area || 'Geral')));
       
       return {
         nome: name,
@@ -182,10 +175,10 @@ export function FinanceiroPage() {
         aReceber: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(aReceber),
         recebido: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(recebido),
         taxa,
-        colorBase: name.includes('Ricardo') ? '#C5B382' : name.includes('Ana') ? '#059669' : '#C5B382'
+        colorBase: (name as string).includes('Ricardo') ? '#C5B382' : (name as string).includes('Ana') ? '#059669' : '#C5B382'
       };
     });
-  }, [mockFinanceiro.length]);
+  }, [financeiro]);
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
@@ -331,15 +324,24 @@ export function FinanceiroPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paginatedKeys.length > 0 ? (
+                        {isDataLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={9} className="py-20 text-center">
+                              <div className="flex flex-col items-center justify-center text-[var(--color-text-secondary)]">
+                                <Loader2 className="w-8 h-8 animate-spin mb-3 text-[var(--color-gold)]" />
+                                <p className="text-xs font-medium">Carregando financeiro...</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : paginatedKeys.length > 0 ? (
                           paginatedKeys.map((groupKey) => {
                             const group = transactionGroups[groupKey];
                             const mainItem = group[0];
                             const hasMultiple = group.length > 1;
                             const isExpanded = expandedRows[groupKey];
                             
-                            const areaColors = getAreaColor(mainItem.cliente.area);
-                            const tipoColors = getTipoColor(mainItem.tipo);
+                            const areaColors = getAreaColor(mainItem.clientes?.area || 'Geral');
+                            const tipoColors = getTipoColor(mainItem.tipo || 'Honorário');
 
                             return (
                               <React.Fragment key={groupKey}>
@@ -350,28 +352,28 @@ export function FinanceiroPage() {
                                   <TableCell className="py-4">
                                     <div className="flex items-center gap-3">
                                       <div className="h-8 w-8 rounded-full bg-[var(--color-surface-high)] flex items-center justify-center text-[var(--color-chumbo)] text-[10px] font-bold shrink-0">
-                                        {mainItem.cliente.nome.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}
+                                        {(mainItem.clientes?.nome || 'C').split(' ').map((n: string)=>n[0]).join('').slice(0,2).toUpperCase()}
                                       </div>
                                       <div className="flex flex-col gap-0.5 min-w-[140px]">
-                                        <span className="font-bold text-[12px] text-[var(--color-chumbo)]">{mainItem.cliente.nome}</span>
+                                        <span className="font-bold text-[12px] text-[var(--color-chumbo)]">{mainItem.clientes?.nome}</span>
                                         <div 
                                           className="inline-flex w-fit px-1.5 py-0.5 rounded text-[9px] font-bold"
                                           style={{ backgroundColor: `color-mix(in srgb, ${areaColors.bg}, transparent 90%)`, color: areaColors.text }}
                                         >
-                                          {mainItem.cliente.area}
+                                          {mainItem.clientes?.area || 'Geral'}
                                         </div>
                                       </div>
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    <span className="text-[11px] text-[var(--color-text-secondary)] font-medium font-mono">{mainItem.processo}</span>
+                                    <span className="text-[11px] text-[var(--color-text-secondary)] font-medium font-mono">{mainItem.processos?.numero || 'A Vincular'}</span>
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex items-center gap-2">
                                       <div className="h-6 w-6 rounded-full bg-[var(--color-gold)]/20 flex items-center justify-center text-[var(--color-gold)] text-[9px] font-bold shrink-0">
-                                        {mainItem.advogado.iniciais}
+                                        {(mainItem.advogado_nome || 'A').split(' ').map((n: string)=>n[0]).join('').slice(0,2).toUpperCase()}
                                       </div>
-                                      <span className="text-[11px] font-medium text-[var(--color-text-secondary)] whitespace-nowrap">{mainItem.advogado.nome}</span>
+                                      <span className="text-[11px] font-medium text-[var(--color-text-secondary)] whitespace-nowrap">{mainItem.advogado_nome}</span>
                                     </div>
                                   </TableCell>
                                   <TableCell>
@@ -391,29 +393,29 @@ export function FinanceiroPage() {
                                     <div className="flex flex-col">
                                       <span className={cn(
                                         "text-[10px] font-medium",
-                                        mainItem.vencimento.isVencido ? "text-[var(--color-error)]" : 
-                                        mainItem.vencimento.isPago ? "text-[var(--color-success)]" : "text-[var(--color-text-secondary)]"
+                                        mainItem.vencimento_status === 'Vencido' ? "text-[var(--color-error)]" : 
+                                        mainItem.is_pago ? "text-[var(--color-success)]" : "text-[var(--color-text-secondary)]"
                                       )}>
-                                        {mainItem.vencimento.statusText}
+                                        {mainItem.is_pago ? 'Pago' : mainItem.vencimento_status}
                                       </span>
                                       <span className={cn(
                                         "text-[11px] font-bold",
-                                        mainItem.vencimento.isVencido ? "text-[var(--color-error)]" : 
-                                        mainItem.vencimento.isPago ? "text-[var(--color-success)]" : "text-[var(--color-chumbo)]"
+                                        mainItem.vencimento_status === 'Vencido' ? "text-[var(--color-error)]" : 
+                                        mainItem.is_pago ? "text-[var(--color-success)]" : "text-[var(--color-chumbo)]"
                                       )}>
-                                        {mainItem.vencimento.data}
+                                        {mainItem.vencimento_data}
                                       </span>
                                     </div>
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex flex-col">
                                       <span className="text-[13px] font-bold text-[var(--color-chumbo)]">
-                                        {mainItem.valor.amount}
+                                        {mainItem.valor_amount}
                                       </span>
-                                      {mainItem.valor.parcelas && (
+                                      {mainItem.parcelas && (
                                         <div className="flex items-center gap-1">
                                           <span className="text-[10px] text-[var(--color-info)] font-medium">
-                                            {mainItem.valor.parcelas}
+                                            {mainItem.parcelas}
                                           </span>
                                           {hasMultiple && (
                                             <button 
@@ -447,16 +449,12 @@ export function FinanceiroPage() {
                                 {isExpanded && group.slice(1).map((subItem) => (
                                   <TableRow key={subItem.id} className="bg-gray-50/50 border-b border-[var(--color-surface-high)] last:border-b-2 last:border-b-[var(--color-gold)]/20 animate-in fade-in slide-in-from-top-1 duration-200">
                                     <TableCell className="py-2 opacity-50 border-l-4 border-l-[var(--color-gold)]/20">
-                                      {/* Empty for client */}
                                     </TableCell>
                                     <TableCell className="py-2 opacity-50">
-                                      {/* Empty for process */}
                                     </TableCell>
                                     <TableCell className="py-2 opacity-50">
-                                      {/* Empty for advocate */}
                                     </TableCell>
                                     <TableCell className="py-2 opacity-50">
-                                      {/* Empty for type */}
                                     </TableCell>
                                     <TableCell className="py-2">
                                       <span className="text-[10px] text-gray-500 italic ml-4">
@@ -467,27 +465,27 @@ export function FinanceiroPage() {
                                       <div className="flex flex-col">
                                         <span className={cn(
                                           "text-[9px] font-medium",
-                                          subItem.vencimento.isVencido ? "text-[var(--color-error)]" : 
-                                          subItem.vencimento.isPago ? "text-[var(--color-success)]" : "text-gray-400"
+                                          subItem.vencimento_status === 'Vencido' ? "text-[var(--color-error)]" : 
+                                          subItem.is_pago ? "text-[var(--color-success)]" : "text-gray-400"
                                         )}>
-                                          {subItem.vencimento.statusText}
+                                          {subItem.is_pago ? 'Pago' : subItem.vencimento_status}
                                         </span>
                                         <span className={cn(
                                           "text-[10px] font-bold",
-                                          subItem.vencimento.isVencido ? "text-[var(--color-error)]" : 
-                                          subItem.vencimento.isPago ? "text-[var(--color-success)]" : "text-gray-600"
+                                          subItem.vencimento_status === 'Vencido' ? "text-[var(--color-error)]" : 
+                                          subItem.is_pago ? "text-[var(--color-success)]" : "text-gray-600"
                                         )}>
-                                          {subItem.vencimento.data}
+                                          {subItem.vencimento_data}
                                         </span>
                                       </div>
                                     </TableCell>
                                     <TableCell className="py-2">
                                       <div className="flex flex-col">
                                         <span className="text-[11px] font-bold text-gray-700">
-                                          {subItem.valor.amount}
+                                          {subItem.valor_amount}
                                         </span>
                                         <span className="text-[9px] text-gray-400">
-                                          {subItem.valor.parcelas}
+                                          {subItem.parcelas}
                                         </span>
                                       </div>
                                     </TableCell>
@@ -500,7 +498,6 @@ export function FinanceiroPage() {
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="py-2 text-center">
-                                      {/* No actions for subs */}
                                     </TableCell>
                                   </TableRow>
                                 ))}

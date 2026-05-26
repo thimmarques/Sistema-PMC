@@ -8,42 +8,42 @@ import {
   TrendingUp, 
   AlertTriangle, 
   Percent,
-  LogOut
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import { Topbar } from './Topbar';
 import { Sidebar } from './Sidebar';
 import { Card, StatusBadge, cn } from './ui';
-import { mockClientes } from '../data/mockData';
-import { mockProcessos } from '../data/processosData';
-import { mockFinanceiro } from '../data/financeiroData';
 import { useAuth } from '../hooks/useAuth';
+import { useData } from '../contexts/DataContext';
 import { getAreaColor } from '../lib/area-colors';
 
 export function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { clientes, processos, financeiro, isLoading: isDataLoading } = useData();
   const isAdmin = user?.role === 'admin';
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
-  const activeProcessos = useMemo(() => mockProcessos.filter(p => p.status === 'Ativo').length, []);
+  const activeProcessosCount = useMemo(() => processos.filter(p => p.status === 'Ativo').length, [processos]);
   
   const nextHearing = useMemo(() => {
-    const process = mockProcessos.find(p => p.proximaAudiencia);
+    const process = processos.find(p => p.proxima_audiencia);
     if (!process) return null;
-    return { data: process.proximaAudiencia?.split(' ')[0], vara: process.tribunal.vara };
-  }, []);
+    return { data: process.proxima_audiencia?.split(' ')[0], vara: process.tribunal_vara };
+  }, [processos]);
 
-  const totalPrazos = useMemo(() => mockProcessos.filter(p => p.prazoFatal).length, []);
-  const totalPrazosFatais = useMemo(() => mockProcessos.filter(p => p.prazoFatal === 'VENCIDO').length, []);
+  const totalPrazos = useMemo(() => processos.filter(p => p.prazo_fatal).length, [processos]);
+  const totalPrazosFatais = useMemo(() => processos.filter(p => p.prazo_fatal === 'VENCIDO').length, [processos]);
 
   const areaDistribution = useMemo(() => {
     const areas: Record<string, number> = {};
-    mockProcessos.forEach(p => {
+    processos.forEach(p => {
       areas[p.area] = (areas[p.area] || 0) + 1;
     });
     return Object.entries(areas).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, []);
+  }, [processos]);
 
   const parseCurrency = (val: string | undefined): number => {
     if (!val) return 0;
@@ -61,20 +61,20 @@ export function Dashboard() {
   };
 
   const totalHonorariosContratados = useMemo(() => {
-    return mockClientes.reduce((acc, c) => acc + parseCurrency(c.valorHonorarios), 0);
-  }, [mockClientes.length]);
+    return clientes.reduce((acc, c) => acc + parseCurrency(c.valor_honorarios), 0);
+  }, [clientes]);
 
   const totalFinanceiroPagoMes = useMemo(() => {
-    return mockFinanceiro
-      .filter(f => f.status === 'Pago' && isCurrentMonth(f.vencimento.data))
-      .reduce((acc, f) => acc + parseCurrency(f.valor.amount), 0);
-  }, [mockFinanceiro.length]);
+    return financeiro
+      .filter(f => f.status === 'Pago' && isCurrentMonth(f.vencimento_data))
+      .reduce((acc, f) => acc + parseCurrency(f.valor_amount), 0);
+  }, [financeiro]);
 
   const totalEmAtraso = useMemo(() => {
-    return mockFinanceiro
-      .filter(f => f.status === 'Vencido' || (f.status === 'Pendente' && f.vencimento.isVencido))
-      .reduce((acc, f) => acc + parseCurrency(f.valor.amount), 0);
-  }, [mockFinanceiro.length]);
+    return financeiro
+      .filter(f => f.status === 'Vencido' || (f.status === 'Pendente' && f.vencimento_status === 'Vencido'))
+      .reduce((acc, f) => acc + parseCurrency(f.valor_amount), 0);
+  }, [financeiro]);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
@@ -92,19 +92,19 @@ export function Dashboard() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Card 
                 title="MEUS PROCESSOS ATIVOS" 
-                value={activeProcessos.toString()} 
+                value={activeProcessosCount.toString()} 
                 icon={
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-info-light)] text-[var(--color-info)]">
                     <Briefcase size={24} />
                   </div>
                 }
               >
-                <p className="text-xs text-[var(--color-text-secondary)] mt-1">Geral: {mockProcessos.length} processos</p>
+                <p className="text-xs text-[var(--color-text-secondary)] mt-1">Geral: {processos.length} processos</p>
               </Card>
 
               <Card 
                 title="MEUS CLIENTES" 
-                value={mockClientes.length.toString()} 
+                value={clientes.length.toString()} 
                 icon={
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-success-light)] text-[var(--color-success)]">
                     <Users size={24} />
@@ -190,16 +190,17 @@ export function Dashboard() {
                 <h3 className="text-base font-semibold text-[var(--color-chumbo)] mb-4">Atividade Recente</h3>
                 <div className="space-y-6 relative">
                   <div className="absolute left-[3px] top-2 bottom-2 w-[1px] bg-[var(--color-surface-high)]"></div>
-                  {mockProcessos.slice(0, 4).map((processo, index) => (
+                  {processos.slice(0, 4).map((processo, index) => (
                     <div key={processo.id} className="relative pl-6">
                       <div className={cn(
                         "absolute left-0 top-2 h-2 w-2 rounded-full bg-[var(--color-chumbo)]",
                         index > 2 ? "opacity-40" : "opacity-100"
                       )}></div>
                       <p className="text-sm text-[var(--color-chumbo)] font-medium">Movimentação em {processo.numero}</p>
-                      <p className="text-xs text-[var(--color-text-secondary)]">{processo.ultimaMovimentacao} — {processo.faseAtual}</p>
+                      <p className="text-xs text-[var(--color-text-secondary)]">{processo.ultima_movimentacao} — {processo.fase_atual}</p>
                     </div>
                   ))}
+                  {processos.length === 0 && <p className="text-xs text-gray-400 italic">Nenhuma atividade recente.</p>}
                 </div>
               </Card>
 
@@ -207,8 +208,8 @@ export function Dashboard() {
               <Card className="lg:col-span-1">
                 <h3 className="text-base font-semibold text-[var(--color-chumbo)] mb-4">Próximas Audiências</h3>
                 <div className="space-y-4">
-                  {mockProcessos.filter(p => !!p.proximaAudiencia).map((processo) => {
-                    const dateParts = processo.proximaAudiencia!.split(' ')[0].split('/');
+                  {processos.filter(p => !!p.proxima_audiencia).map((processo) => {
+                    const dateParts = processo.proxima_audiencia!.split(' ')[0].split('/');
                     const monthNames = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
                     const day = dateParts[0];
                     const month = dateParts[1] ? monthNames[parseInt(dateParts[1], 10) - 1] : '';
@@ -220,7 +221,7 @@ export function Dashboard() {
                           <span className="text-[10px] font-bold uppercase text-[var(--color-text-secondary)]">{month}</span>
                         </div>
                         <div className="overflow-hidden">
-                          <p className="text-sm font-bold text-[var(--color-chumbo)] truncate">{processo.cliente.nome}</p>
+                          <p className="text-sm font-bold text-[var(--color-chumbo)] truncate">{processo.clientes?.nome}</p>
                           <p className="text-[11px] text-[var(--color-text-secondary)] mb-1.5 truncate">{processo.titulo}</p>
                           <StatusBadge 
                             style={{ 
@@ -236,7 +237,7 @@ export function Dashboard() {
                       </div>
                     );
                   })}
-                  {mockProcessos.filter(p => !!p.proximaAudiencia).length === 0 && (
+                  {processos.filter(p => !!p.proxima_audiencia).length === 0 && (
                     <p className="text-sm text-[var(--color-text-secondary)] italic">Nenhuma audiência marcada.</p>
                   )}
                 </div>

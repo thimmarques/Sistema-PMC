@@ -20,10 +20,13 @@ import {
   EmptyState,
   Select
 } from './ui';
-import { Search, Filter, Users, ChevronLeft, ChevronRight, Edit, Trash2, X, ChevronDown, Plus, MoreHorizontal, Star, Eye } from 'lucide-react';
-import { mockClientes, addClienteToMock, removeClienteFromMock, updateClienteInMock } from '../data/mockData';
-import { addProcessoToMock, Processo } from '../data/processosData';
-import { addFinanceiroToMock, TransacaoFinanceira } from '../data/financeiroData';
+import { Search, Filter, Users, ChevronLeft, ChevronRight, Edit, Trash2, X, ChevronDown, Plus, MoreHorizontal, Star, Eye, Loader2 } from 'lucide-react';
+import { useData } from '../contexts/DataContext';
+import { clienteService } from '../services/clienteService';
+import { processoService } from '../services/processoService';
+import { financeiroService } from '../services/financeiroService';
+import { Processo } from '../data/processosData';
+import { TransacaoFinanceira } from '../data/financeiroData';
 import { NovoClienteModal, Step1Data } from './Modals/NovoClienteModal';
 import { Step2Modal } from './Modals/Step2Modal';
 import { EditarClienteDrawer } from './Modals/EditarClienteDrawer';
@@ -44,9 +47,11 @@ import { useToast } from '../contexts/ToastContext';
 export function ClientesPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { clientes, isLoading: isDataLoading, refreshClientes, refreshProcessos, refreshFinanceiro } = useData();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [clienteToDelete, setClienteToDelete] = useState<{ id: string, nome: string } | null>(null);
@@ -60,7 +65,7 @@ export function ClientesPage() {
   const itemsPerPage = 10;
 
   const filteredClientes = useMemo(() => {
-    return mockClientes.filter(cliente => {
+    return clientes.filter(cliente => {
       const matchesSearch = 
         cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         cliente.cpf_cnpj.includes(searchTerm);
@@ -71,7 +76,7 @@ export function ClientesPage() {
 
       return matchesSearch && matchesStatus && matchesTipo && matchesArea;
     });
-  }, [searchTerm, statusFilter, tipoFilter, areaFilter, mockClientes.length]);
+  }, [searchTerm, statusFilter, tipoFilter, areaFilter, clientes]);
 
   const totalPages = Math.ceil(filteredClientes.length / itemsPerPage);
   const paginatedClientes = filteredClientes.slice(
@@ -107,202 +112,128 @@ export function ClientesPage() {
     setCurrentStep(1);
   };
 
-  const handleSaveCliente = (step2Data: any) => {
+  const handleSaveCliente = async (step2Data: any) => {
     if (step1Data) {
-      console.log('Salvando cliente:', { ...step1Data, step2Data });
-      
-      const newClientId = String(Date.now());
-      const nomeCliente = step1Data.tipoCliente === 'pf' 
-        ? step2Data.qualificacao.nomeCompleto 
-        : step2Data.qualificacao.razaoSocial;
-      
-      // 1. Criar e Adicionar o Cliente
-      const novoCliente = {
-        id: newClientId,
-        nome: nomeCliente,
-        tipo: step1Data.tipoCliente,
-        cpf_cnpj: step1Data.tipoCliente === 'pf' ? step2Data.qualificacao.cpf : step2Data.qualificacao.cnpj,
-        email: step1Data.tipoCliente === 'pf' ? step2Data.qualificacao.email : step2Data.qualificacao.emailCorporativo,
-        telefone: step1Data.tipoCliente === 'pf' ? step2Data.qualificacao.telefone : step2Data.qualificacao.telefoneCorporativo,
-        responsavel: step2Data.responsavel || 'Não atribuído', // fallbacks
-        status: 'ativo',
-        area: step1Data.areasDireito[0] || 'Outros', // Principal
-        isVIP: step2Data.isVIP || false,
-        dataCadastro: new Date().toISOString().split('T')[0],
-        nps: 10,
-        processosAtivos: step1Data.areasDireito.length,
-        observacoes: step2Data.observacoes || '',
-        valorHonorarios: step2Data.valorHonorarios,
-        formaPagamento: step2Data.formaPagamento,
-        parcelas: step2Data.parcelas,
-        temEntrada: step2Data.temEntrada,
-        valorEntrada: step2Data.valorEntrada,
-        dataPagamento: step2Data.dataPagamento,
-        qualificacao: step2Data.qualificacao,
-        areaData: step2Data.areaData,
-        polo: (() => {
-          const area = step1Data.areasDireito[0] || 'Outros';
+      setIsSubmitting(true);
+      try {
+        const nomeCliente = step1Data.tipoCliente === 'pf' 
+          ? step2Data.qualificacao.nomeCompleto 
+          : step2Data.qualificacao.razaoSocial;
+        
+        // 1. Criar e Adicionar o Cliente
+        const novoClienteData = {
+          nome: nomeCliente,
+          tipo: step1Data.tipoCliente,
+          cpf_cnpj: step1Data.tipoCliente === 'pf' ? step2Data.qualificacao.cpf : step2Data.qualificacao.cnpj,
+          email: step1Data.tipoCliente === 'pf' ? step2Data.qualificacao.email : step2Data.qualificacao.emailCorporativo,
+          telefone: step1Data.tipoCliente === 'pf' ? step2Data.qualificacao.telefone : step2Data.qualificacao.telefoneCorporativo,
+          responsavel: step2Data.responsavel || 'Não atribuído',
+          status: 'ativo',
+          area: step1Data.areasDireito[0] || 'Outros',
+          isVIP: step2Data.isVIP || false,
+          observacoes: step2Data.observacoes || '',
+          valor_honorarios: step2Data.valorHonorarios,
+          qualificacao: step2Data.qualificacao,
+          area_data: step2Data.areaData,
+        };
+        
+        const createdCliente = await clienteService.create(novoClienteData);
+
+        // 2. Criar Processo(s)
+        const processosPromises = step1Data.areasDireito.map(async (area) => {
           const ad = step2Data.areaData[area];
-          if (!ad) return 'Ativo';
-          
-          if (ad.polo) {
-            if (ad.polo === 'reu') return 'Passivo';
-            return ad.polo; // 'Ativo', 'Passivo'
-          }
-          
-          if (ad.reuAutor) {
-            const val = ad.reuAutor.toLowerCase();
-            if (val === 'ativo' || val === 'autor') return 'Ativo';
-            if (val === 'passivo' || val === 'reu') return 'Passivo';
-            return ad.reuAutor;
-          }
-          
-          return 'Ativo';
-        })()
-      };
-      
-      addClienteToMock(novoCliente);
-
-      // 2. Criar Processo(s) atrelado(s) à área preenchida
-      step1Data.areasDireito.forEach(area => {
-        const ad = step2Data.areaData[area];
-        if (ad) {
-          const valorHonorariosStr = step2Data.valorHonorarios ? `R$ ${step2Data.valorHonorarios}` : 'R$ 0,00';
-          
-          const currentPolo = ad.polo === 'reu' ? 'Passivo' : (ad.polo || (ad.reuAutor?.toLowerCase().includes('autor') ? 'Ativo' : (ad.reuAutor?.toLowerCase().includes('reu') ? 'Passivo' : 'Ativo')));
-          
-          const processo: Processo = {
-            id: `proc_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-            numero: `(Aguardando Numeração) - ${area}`,
-            titulo: ad.tipoAcao || ad.crimeImputado || ad.tipoReclamacao || ad.tipoBeneficio || ad.tipoTributo || `Novo Caso ${area}`,
-            cliente: { nome: nomeCliente },
-            area: area,
-            tribunal: { nome: ad.orgaoFiscalizador || 'A definir', vara: 'A distribuir' },
-            status: 'Ativo',
-            responsavel: { nome: novoCliente.responsavel },
-            valorCausa: ad.valorDaCausa || ad.valorDebito || 'R$ 0,00',
-            financeiroPago: step2Data.temEntrada ? `R$ ${step2Data.valorEntrada}` : 'R$ 0,00',
-            dataDistribuicao: ad.dataPropositura || new Date().toLocaleDateString('pt-BR'),
-            ultimaMovimentacao: new Date().toLocaleDateString('pt-BR'),
-            faseAtual: ad.faseProcessual || 'Atendimento Inicial',
-            poloAtivo: currentPolo === 'Ativo' ? nomeCliente : (ad.reuAutor?.toLowerCase().includes('autor') ? nomeCliente : 'A definir'),
-            poloPassivo: currentPolo === 'Passivo' ? nomeCliente : (ad.reuAutor?.toLowerCase().includes('reu') ? nomeCliente : (ad.contraparte || ad.empresa || 'A definir')),
-            comarca: ad.comarca || ''
-          };
-          addProcessoToMock(processo);
-        }
-      });
-
-      // 3. Criar Transação Financeira (Se preenchida honorários)
-      if (step2Data.valorHonorarios) {
-        const totalAmount = parseFloat(step2Data.valorHonorarios.replace(/[^\d,-]/g, '').replace(',', '.'));
-        
-        let remainingAmount = totalAmount;
-        let baseDate = step2Data.dataPagamento ? new Date(step2Data.dataPagamento + 'T12:00:00') : new Date();
-
-        // 3a. Criar Entrada se houver
-        if (step2Data.temEntrada && step2Data.valorEntrada) {
-          const entryAmount = parseFloat(step2Data.valorEntrada.replace(/[^\d,-]/g, '').replace(',', '.'));
-          remainingAmount -= entryAmount;
-
-          const transacaoEntrada: TransacaoFinanceira = {
-            id: `fin_${Date.now()}_entry`,
-            cliente: { nome: nomeCliente, area: step1Data.areasDireito[0] || 'Geral' },
-            processo: 'A Vincular',
-            advogado: { 
-              nome: novoCliente.responsavel === 'ricardo-silva' ? 'Dr. Ricardo Silva' : 
-                    novoCliente.responsavel === 'ana-paula' ? 'Dra. Ana Paula' : 
-                    novoCliente.responsavel === 'carlos-eduardo' ? 'Dr. Carlos Eduardo' : novoCliente.responsavel,
-              iniciais: novoCliente.responsavel.substring(0, 2).toUpperCase() 
-            },
-            tipo: 'Honorário',
-            descricao: `Honorários Contratuais - Entrada`,
-            vencimento: { 
-              data: baseDate.toLocaleDateString('pt-BR'), 
-              statusText: 'Pago', 
-              isVencido: false, 
-              isPago: true 
-            },
-            valor: { 
-              amount: `R$ ${step2Data.valorEntrada}`, 
-            },
-            status: 'Pago'
-          };
-          addFinanceiroToMock(transacaoEntrada);
-          
-          // Increment base date for next installments (30 days from entry)
-          baseDate.setMonth(baseDate.getMonth() + 1);
-        }
-
-        // 3b. Criar Parcelas do Saldo
-        const numParcelas = parseInt(step2Data.parcelas || (step2Data.formaPagamento === 'avista' ? '0' : '1'), 10);
-        
-        if (numParcelas > 0 && remainingAmount > 0) {
-          const parcelValue = (remainingAmount / numParcelas).toFixed(2).replace('.', ',');
-
-          for (let i = 1; i <= numParcelas; i++) {
-            const installmentDate = new Date(baseDate);
-            installmentDate.setMonth(baseDate.getMonth() + (i - 1));
-
-            const transacao: TransacaoFinanceira = {
-              id: `fin_${Date.now()}_${i}`,
-              cliente: { nome: nomeCliente, area: step1Data.areasDireito[0] || 'Geral' },
-              processo: 'A Vincular',
-              advogado: { 
-                nome: novoCliente.responsavel === 'ricardo-silva' ? 'Dr. Ricardo Silva' : 
-                      novoCliente.responsavel === 'ana-paula' ? 'Dra. Ana Paula' : 
-                      novoCliente.responsavel === 'carlos-eduardo' ? 'Dr. Carlos Eduardo' : novoCliente.responsavel,
-                iniciais: novoCliente.responsavel.substring(0, 2).toUpperCase() 
-              },
-              tipo: 'Honorário',
-              descricao: `Honorários Contratuais - ${numParcelas > 1 ? 'Parcela ' + i + '/' + numParcelas : 'Saldo Ativo'}`,
-              vencimento: { 
-                data: installmentDate.toLocaleDateString('pt-BR'), 
-                statusText: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista' ? 'Pago' : 'A Vencer', 
-                isVencido: false, 
-                isPago: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista'
-              },
-              valor: { 
-                amount: `R$ ${parcelValue}`, 
-                parcelas: numParcelas > 1 ? `${i}/${numParcelas}` : undefined 
-              },
-              status: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista' ? 'Pago' : 'Pendente'
+          if (ad) {
+            const currentPolo = ad.polo === 'reu' ? 'Passivo' : (ad.polo || (ad.reuAutor?.toLowerCase().includes('autor') ? 'Ativo' : (ad.reuAutor?.toLowerCase().includes('reu') ? 'Passivo' : 'Ativo')));
+            
+            const processoData = {
+              numero: `(Aguardando Numeração) - ${area}`,
+              titulo: ad.tipoAcao || ad.crimeImputado || ad.tipoReclamacao || ad.tipoBeneficio || ad.tipoTributo || `Novo Caso ${area}`,
+              cliente_id: createdCliente.id,
+              area: area,
+              tribunal_nome: ad.orgaoFiscalizador || 'A definir',
+              tribunal_vara: 'A distribuir',
+              status: 'Ativo',
+              responsavel_nome: createdCliente.responsavel,
+              valor_causa: ad.valorDaCausa || ad.valorDebito || 'R$ 0,00',
+              data_distribuicao: ad.dataPropositura || new Date().toLocaleDateString('pt-BR'),
+              ultima_movimentacao: new Date().toLocaleDateString('pt-BR'),
+              fase_atual: ad.faseProcessual || 'Atendimento Inicial',
+              polo_ativo: currentPolo === 'Ativo' ? nomeCliente : (ad.reuAutor?.toLowerCase().includes('autor') ? nomeCliente : 'A definir'),
+              polo_passivo: currentPolo === 'Passivo' ? nomeCliente : (ad.reuAutor?.toLowerCase().includes('reu') ? nomeCliente : (ad.contraparte || ad.empresa || 'A definir')),
+              comarca: ad.comarca || ''
             };
-            addFinanceiroToMock(transacao);
+            return processoService.create(processoData);
           }
-        } else if (remainingAmount > 0 && step2Data.formaPagamento === 'avista') {
-            // Case for À Vista without Entrada (the whole amount is one payment)
-            const transacao: TransacaoFinanceira = {
-                id: `fin_${Date.now()}_avista`,
-                cliente: { nome: nomeCliente, area: step1Data.areasDireito[0] || 'Geral' },
-                processo: 'A Vincular',
-                advogado: { 
-                  nome: novoCliente.responsavel === 'ricardo-silva' ? 'Dr. Ricardo Silva' : 
-                        novoCliente.responsavel === 'ana-paula' ? 'Dra. Ana Paula' : 
-                        novoCliente.responsavel === 'carlos-eduardo' ? 'Dr. Carlos Eduardo' : novoCliente.responsavel,
-                  iniciais: novoCliente.responsavel.substring(0, 2).toUpperCase() 
-                },
-                tipo: 'Honorário',
-                descricao: `Honorários Contratuais - À Vista`,
-                vencimento: { 
-                  data: baseDate.toLocaleDateString('pt-BR'), 
-                  statusText: 'Pago', 
-                  isVencido: false, 
-                  isPago: true
-                },
-                valor: { 
-                  amount: `R$ ${remainingAmount.toFixed(2).replace('.', ',')}`, 
-                },
-                status: 'Pago'
-              };
-              addFinanceiroToMock(transacao);
-        }
-      }
+          return null;
+        });
 
-      setIsModalOpen(false);
-      showToast('Cadastro mestre criado: Cliente, Processos e Financeiro vinculados!', 'success');
-      setSearchTerm(' '); // Trigger um re-render
-      setTimeout(() => setSearchTerm(''), 50);
+        await Promise.all(processosPromises);
+
+        // 3. Criar Transação Financeira
+        if (step2Data.valorHonorarios) {
+          const totalAmount = parseFloat(step2Data.valorHonorarios.replace(/[^\d,-]/g, '').replace(',', '.'));
+          let remainingAmount = totalAmount;
+          let baseDate = step2Data.dataPagamento ? new Date(step2Data.dataPagamento + 'T12:00:00') : new Date();
+
+          const financeiroPromises = [];
+
+          if (step2Data.temEntrada && step2Data.valorEntrada) {
+            const entryAmount = parseFloat(step2Data.valorEntrada.replace(/[^\d,-]/g, '').replace(',', '.'));
+            remainingAmount -= entryAmount;
+
+            financeiroPromises.push(financeiroService.create({
+              cliente_id: createdCliente.id,
+              tipo: 'Honorário',
+              descricao: `Honorários Contratuais - Entrada`,
+              vencimento_data: baseDate.toLocaleDateString('pt-BR'),
+              vencimento_status: 'Pago',
+              is_pago: true,
+              valor_amount: `R$ ${step2Data.valorEntrada}`,
+              status: 'Pago',
+              advogado_nome: createdCliente.responsavel
+            }));
+            
+            baseDate.setMonth(baseDate.getMonth() + 1);
+          }
+
+          const numParcelas = parseInt(step2Data.parcelas || (step2Data.formaPagamento === 'avista' ? '0' : '1'), 10);
+          
+          if (numParcelas > 0 && remainingAmount > 0) {
+            const parcelValue = (remainingAmount / numParcelas).toFixed(2).replace('.', ',');
+
+            for (let i = 1; i <= numParcelas; i++) {
+              const installmentDate = new Date(baseDate);
+              installmentDate.setMonth(baseDate.getMonth() + (i - 1));
+
+              financeiroPromises.push(financeiroService.create({
+                cliente_id: createdCliente.id,
+                tipo: 'Honorário',
+                descricao: `Honorários Contratuais - ${numParcelas > 1 ? 'Parcela ' + i + '/' + numParcelas : 'Saldo Ativo'}`,
+                vencimento_data: installmentDate.toLocaleDateString('pt-BR'),
+                vencimento_status: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista' ? 'Pago' : 'A Vencer',
+                is_pago: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista',
+                valor_amount: `R$ ${parcelValue}`,
+                parcelas: numParcelas > 1 ? `${i}/${numParcelas}` : undefined,
+                status: i === 1 && !step2Data.temEntrada && step2Data.formaPagamento === 'avista' ? 'Pago' : 'Pendente',
+                advogado_nome: createdCliente.responsavel
+              }));
+            }
+          }
+
+          await Promise.all(financeiroPromises);
+        }
+
+        await refreshClientes();
+        await refreshProcessos();
+        await refreshFinanceiro();
+        
+        setIsModalOpen(false);
+        showToast('Cadastro realizado com sucesso no Supabase!', 'success');
+      } catch (err: any) {
+        showToast(`Erro ao cadastrar: ${err.message}`, 'error');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -311,14 +242,18 @@ export function ClientesPage() {
     setIsEditDrawerOpen(true);
   };
 
-  const handleUpdateCliente = (data: any) => {
-    const success = updateClienteInMock(data);
-    if (success) {
+  const handleUpdateCliente = async (data: any) => {
+    setIsSubmitting(true);
+    try {
+      await clienteService.update(data.id, data);
+      await refreshClientes();
       showToast('Cliente atualizado com sucesso!', 'success');
-    } else {
-      showToast('Erro ao atualizar cliente.', 'error');
+      setIsEditDrawerOpen(false);
+    } catch (err: any) {
+      showToast(`Erro ao atualizar cliente: ${err.message}`, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsEditDrawerOpen(false);
   };
 
   const handleDeleteClick = (id: string, nome: string) => {
@@ -326,16 +261,20 @@ export function ClientesPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (clienteToDelete) {
-      const success = removeClienteFromMock(clienteToDelete.id);
-      if (success) {
+      setIsSubmitting(true);
+      try {
+        await clienteService.delete(clienteToDelete.id);
+        await refreshClientes();
         showToast(`Cliente "${clienteToDelete.nome}" excluído com sucesso.`, 'success');
-      } else {
-        showToast('Erro ao excluir cliente.', 'error');
+        setIsDeleteModalOpen(false);
+        setClienteToDelete(null);
+      } catch (err: any) {
+        showToast(`Erro ao excluir cliente: ${err.message}`, 'error');
+      } finally {
+        setIsSubmitting(false);
       }
-      setIsDeleteModalOpen(false);
-      setClienteToDelete(null);
     }
   };
 
@@ -439,8 +378,13 @@ export function ClientesPage() {
             </Card>
 
             {/* Table */}
-            <Card className="overflow-hidden">
-              {filteredClientes.length > 0 ? (
+            <Card className="overflow-hidden min-h-[400px] flex flex-col">
+              {isDataLoading ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-12 text-[var(--color-text-secondary)]">
+                  <Loader2 className="w-10 h-10 animate-spin mb-4 text-[var(--color-gold)]" />
+                  <p className="text-sm font-medium">Carregando seus clientes...</p>
+                </div>
+              ) : filteredClientes.length > 0 ? (
                 <>
                   <Table>
                     <TableHeader>

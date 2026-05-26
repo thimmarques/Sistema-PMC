@@ -7,6 +7,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { DataProvider } from './contexts/DataContext';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { ClientesPage } from './components/ClientesPage';
@@ -25,8 +26,9 @@ export default function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <Router>
-          <Routes>
+        <DataProvider>
+          <Router>
+            <Routes>
             <Route path="/login" element={<Login />} />
             <Route 
               path="/dashboard" 
@@ -120,8 +122,9 @@ export default function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Router>
-      </AuthProvider>
-    </ToastProvider>
+      </DataProvider>
+    </AuthProvider>
+  </ToastProvider>
   );
 }
 

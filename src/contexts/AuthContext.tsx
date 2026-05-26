@@ -1,12 +1,12 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
 import { User } from '../types';
-import { mockUsers } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 import { useToast } from './ToastContext';
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -26,44 +26,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        localStorage.removeItem('user');
+    // Check active sessions and sets the user
+    const getSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        // Fetch profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          name: profile?.name || session.user.user_metadata?.name || 'Usuário',
+          role: profile?.role || session.user.user_metadata?.role || 'advogado',
+        });
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    getSession();
+
+    // Listen for changes on auth state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          name: profile?.name || session.user.user_metadata?.name || 'Usuário',
+          role: profile?.role || session.user.user_metadata?.role || 'advogado',
+        });
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const foundUser = mockUsers.find(u => u.email === email && u.password === password);
-      
-      if (foundUser) {
-        const { password: _, ...userWithoutPassword } = foundUser;
-        const userObj = userWithoutPassword as User;
-        setUser(userObj);
-        localStorage.setItem('user', JSON.stringify(userObj));
-        showToast('Login realizado com sucesso!', 'success');
-      } else {
-        showToast('Email ou senha inválidos.', 'error');
-        throw new Error('Credenciais inválidas');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        showToast(error.message, 'error');
+        throw error;
       }
+
+      if (data.user) {
+        showToast('Login realizado com sucesso!', 'success');
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    showToast('Você saiu do sistema.', 'info');
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      showToast('Erro ao sair.', 'error');
+    } else {
+      showToast('Você saiu do sistema.', 'info');
+    }
   };
 
   return (
