@@ -15,16 +15,14 @@ CREATE TABLE public.profiles (
 -- Habilitar RLS em profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Usuários podem ver seu próprio perfil" ON public.profiles
-  FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Usuários podem atualizar seu próprio perfil" ON public.profiles
-  FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Acesso total profiles" ON public.profiles
+  FOR ALL USING (true);
 
 -- 3. Tabela de Clientes
 CREATE TABLE public.clientes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   nome TEXT NOT NULL,
+  tipo TEXT,
   email TEXT,
   telefone TEXT,
   cpf_cnpj TEXT,
@@ -34,14 +32,17 @@ CREATE TABLE public.clientes (
   responsavel TEXT,
   qualificacao JSONB DEFAULT '{}'::jsonb,
   area_data JSONB DEFAULT '{}'::jsonb,
+  "isVIP" BOOLEAN DEFAULT FALSE,
+  isvip BOOLEAN DEFAULT FALSE,
+  observacoes TEXT,
   user_id UUID REFERENCES auth.users(id) DEFAULT auth.uid(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Acesso total aos próprios clientes" ON public.clientes
-  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Acesso total clientes" ON public.clientes
+  FOR ALL USING (true);
 
 -- 4. Tabela de Processos
 CREATE TABLE public.processos (
@@ -70,8 +71,8 @@ CREATE TABLE public.processos (
 
 ALTER TABLE public.processos ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Acesso total aos próprios processos" ON public.processos
-  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Acesso total processos" ON public.processos
+  FOR ALL USING (true);
 
 -- 5. Tabela Financeira
 CREATE TABLE public.financeiro (
@@ -95,8 +96,8 @@ CREATE TABLE public.financeiro (
 
 ALTER TABLE public.financeiro ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Acesso total aos próprios registros financeiros" ON public.financeiro
-  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Acesso total financeiro" ON public.financeiro
+  FOR ALL USING (true);
 
 -- 6. Histórico de Clientes
 CREATE TABLE public.historico_clientes (
@@ -112,8 +113,8 @@ CREATE TABLE public.historico_clientes (
 
 ALTER TABLE public.historico_clientes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Acesso total ao próprio histórico" ON public.historico_clientes
-  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Acesso total historico_clientes" ON public.historico_clientes
+  FOR ALL USING (true);
 
 -- 7. Notas
 CREATE TABLE public.notas (
@@ -129,8 +130,8 @@ CREATE TABLE public.notas (
 
 ALTER TABLE public.notas ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Acesso total às próprias notas" ON public.notas
-  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Acesso total notas" ON public.notas
+  FOR ALL USING (true);
 
 -- Trigger para criar perfil automaticamente no SignUp
 CREATE OR REPLACE FUNCTION public.handle_new_user()
